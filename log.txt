@@ -1,0 +1,3 @@
+Iniciando...
+BasePath: C:\Users\diego\OneDrive\Documentos\proyectos\
+Todo OK, entrando al game loop
