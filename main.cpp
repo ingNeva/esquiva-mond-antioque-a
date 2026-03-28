@@ -41,28 +41,29 @@ enum EstadoJuego {
     ESTADO_MENU,
     ESTADO_JUGANDO,
     ESTADO_INSTRUCCIONES,
-    ESTADO_GAME_OVER
+    ESTADO_GAME_OVER,
+    ESTADO_PAUSADO          // ← NUEVO: pausa sin resetear estado
 };
 
 // ============================================
 // ESTRUCTURAS
 // ============================================
 struct Jugador {
-    SDL_FRect rect;     // SDL3: SDL_FRect reemplaza SDL_Rect para posición (float)
+    SDL_FRect rect;
     int velocidad;
 };
 
 struct Enemigo {
-    SDL_FRect rect;     // SDL3: SDL_FRect
+    SDL_FRect rect;
     float velX;
     float velY;
 };
 
 struct Machete {
-    SDL_FRect rect;     // SDL3: SDL_FRect
+    SDL_FRect rect;
     bool recogido;
     bool activo;
-    Uint64 ultimoUso;   // SDL3: SDL_GetTicks retorna Uint64
+    Uint64 ultimoUso;
     bool animandoAtaque;
     Uint64 inicioAnimacion;
     float anguloActual;
@@ -87,7 +88,7 @@ struct Juego {
     int                 opcionMenuSeleccionada;
     bool                macheteAparecido;
     int                 ultimoNivelDificultad;
-    SDL_Gamepad*        gamepad;  // SDL3: SDL_Gamepad reemplaza SDL_GameController
+    SDL_Gamepad*        gamepad;
 };
 
 // ============================================
@@ -112,6 +113,7 @@ void  manejarEventos(Juego* juego);
 void  actualizarJugador(Jugador* jugador, SDL_Gamepad* gamepad);
 void  actualizarEnemigos(Juego* juego);
 bool  verificarColision(SDL_FRect* a, SDL_FRect* b);
+void  dibujarJuego(Juego* juego);   // dibuja todo sin SDL_RenderPresent
 void  renderizar(Juego* juego);
 void  limpiarRecursos(Juego* juego);
 void  actualizarAnimacionAtaque(Juego* juego);
@@ -121,6 +123,7 @@ void  renderizarMenu(Juego* juego);
 void  manejarEventosMenu(Juego* juego);
 void  renderizarInstrucciones(Juego* juego);
 void  renderizarGameOver(Juego* juego);
+void  renderizarPausa(Juego* juego);   // ← NUEVO
 
 // ============================================
 // FUNCIÓN PRINCIPAL
@@ -129,7 +132,6 @@ int main(int argc, char* argv[]) {
     FILE* log = fopen("log.txt", "w");
     if (log) { fprintf(log, "Iniciando...\n"); fclose(log); }
 
-    // SDL3: SDL_GetBasePath ya no necesita SDL_free, retorna un string propio
     const char* basePath = SDL_GetBasePath();
     if (basePath) {
         #ifdef _WIN32
@@ -139,7 +141,6 @@ int main(int argc, char* argv[]) {
         #endif
         log = fopen("log.txt", "a");
         if (log) { fprintf(log, "BasePath: %s\n", basePath); fclose(log); }
-        // SDL3: No se llama SDL_free(basePath) — lo gestiona SDL internamente
     }
 
     srand((unsigned int)time(NULL));
@@ -195,6 +196,9 @@ int main(int argc, char* argv[]) {
                 }
                 renderizar(&juego);
                 break;
+            case ESTADO_PAUSADO:             // ← NUEVO
+                renderizarPausa(&juego);
+                break;
             case ESTADO_GAME_OVER:
                 renderizarGameOver(&juego);
                 break;
@@ -210,18 +214,6 @@ int main(int argc, char* argv[]) {
 // IMPLEMENTACIÓN DE FUNCIONES
 // ============================================
 
-/**
- * CAMBIOS SDL3 en inicializarSDL:
- * - SDL_Init ya no recibe flags de subsistemas (siempre inicia todo).
- *   Se mantiene la llamada para compatibilidad, pero el parámetro es ignorado.
- * - SDL_CreateWindow: se elimina SDL_WINDOW_SHOWN (todas las ventanas son visibles por defecto).
- * - SDL_CreateRenderer: el segundo parámetro (índice del driver) desaparece.
- *   SDL3 recibe (window, nombre_driver_o_NULL).
- * - Gamepad: SDL_IsGameController → SDL_IsGamepad
- *            SDL_GameControllerOpen → SDL_OpenGamepad
- *            SDL_GameControllerName → SDL_GetGamepadName
- *            SDL_NumJoysticks → se elimina; se usa SDL_GetGamepads(count)
- */
 bool inicializarSDL(Juego* juego) {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         SDL_Log("Error SDL: %s", SDL_GetError());
@@ -265,11 +257,6 @@ bool inicializarSDL(Juego* juego) {
     return true;
 }
 
-/**
- * CAMBIOS SDL3 en cargarTexturas:
- * - IMG_LoadTexture sigue igual en SDL3_image.
- * - SDL_Log reemplaza std::cout para mensajes de error (más portable en SDL3).
- */
 bool cargarTexturas(Juego* juego) {
     juego->texFondo   = IMG_LoadTexture(juego->renderer, "imagenes/fondo.png");
     juego->texJugador = IMG_LoadTexture(juego->renderer, "imagenes/player.png");
@@ -295,27 +282,19 @@ bool cargarTexturas(Juego* juego) {
 bool cargarFuente(Juego* juego) {
     juego->fuente = TTF_OpenFont("Arial Black.ttf", 36);
     if (!juego->fuente) {
-        SDL_Log("Error cargando fuente: %s", SDL_GetError()); // ← cambiado
+        SDL_Log("Error cargando fuente: %s", SDL_GetError());
         return false;
     }
     return true;
 }
 
-/**
- * CAMBIOS SDL3 en renderizarTexto:
- * - TTF_RenderText_Solid sigue disponible en SDL3_ttf.
- * - SDL_CreateTextureFromSurface sigue igual.
- * - SDL_FRect para el rectángulo destino (coordenadas float).
- * - SDL_RenderTexture reemplaza SDL_RenderCopy.
- */
 void renderizarTexto(Juego* juego, const char* texto, int x, int y, SDL_Color color) {
     SDL_Surface* superficie = TTF_RenderText_Solid(juego->fuente, texto, 0, color);
     if (!superficie) return;
 
     SDL_Texture* textura = SDL_CreateTextureFromSurface(juego->renderer, superficie);
-    if (!textura) { SDL_DestroySurface(superficie); return; }  // SDL3: SDL_DestroySurface
+    if (!textura) { SDL_DestroySurface(superficie); return; }
 
-    // SDL3: SDL_RenderTexture usa SDL_FRect en lugar de SDL_Rect
     SDL_FRect rectDestino = {
         (float)x, (float)y,
         (float)superficie->w, (float)superficie->h
@@ -323,7 +302,7 @@ void renderizarTexto(Juego* juego, const char* texto, int x, int y, SDL_Color co
     SDL_RenderTexture(juego->renderer, textura, NULL, &rectDestino);
 
     SDL_DestroyTexture(textura);
-    SDL_DestroySurface(superficie);  // SDL3: SDL_DestroySurface reemplaza SDL_FreeSurface
+    SDL_DestroySurface(superficie);
 }
 
 void mostrarPuntuacionPantalla(Juego* juego) {
@@ -358,10 +337,6 @@ void aparecerMachete(Juego* juego) {
     juego->machete.recogido = false;
 }
 
-/**
- * CAMBIOS SDL3 en verificarColision:
- * - SDL_HasIntersection(SDL_Rect*, SDL_Rect*) → SDL_HasRectIntersectionFloat(SDL_FRect*, SDL_FRect*)
- */
 bool verificarColision(SDL_FRect* a, SDL_FRect* b) {
     return SDL_HasRectIntersectionFloat(a, b);
 }
@@ -378,13 +353,8 @@ void verificarRecogidaMachete(Juego* juego) {
     }
 }
 
-/**
- * CAMBIOS SDL3 en usarMachete:
- * - SDL_GetTicks retorna Uint64 en SDL3 (era Uint32 en SDL2).
- * - La lógica de cooldown y detección de rango permanece igual.
- */
 void usarMachete(Juego* juego) {
-    Uint64 tiempoActual       = SDL_GetTicks();  // SDL3: Uint64
+    Uint64 tiempoActual       = SDL_GetTicks();
     Uint64 tiempoTranscurrido = tiempoActual - juego->machete.ultimoUso;
 
     if (tiempoTranscurrido >= COOLDOWN_MACHETE) {
@@ -425,13 +395,6 @@ float calcularProgresoCooldown(Juego* juego) {
     return (float)transcurrido / (float)COOLDOWN_MACHETE;
 }
 
-/**
- * CAMBIOS SDL3 en renderizarBarraCooldown:
- * - SDL_RenderFillRect ahora recibe SDL_FRect* (float).
- * - SDL_RenderDrawRect → SDL_RenderRect (SDL3 unificó nombres).
- * - SDL_RenderCopy → SDL_RenderTexture.
- * - SDL_SetRenderDrawColor sigue igual.
- */
 void renderizarBarraCooldown(Juego* juego) {
     if (!juego->macheteEquipado) return;
 
@@ -514,10 +477,6 @@ void inicializarEnemigos(Juego* juego) {
     generarEnemigo(&juego->enemigos[0]);
 }
 
-/**
- * CAMBIOS SDL3 en actualizarAnimacionAtaque:
- * - SDL_GetTicks retorna Uint64.
- */
 void actualizarAnimacionAtaque(Juego* juego) {
     if (!juego->machete.animandoAtaque) return;
 
@@ -556,20 +515,6 @@ void generarEnemigo(Enemigo* enemigo) {
     }
 }
 
-/**
- * CAMBIOS SDL3 en manejarEventos:
- * - SDL_CONTROLLERBUTTONDOWN → SDL_EVENT_GAMEPAD_BUTTON_DOWN
- * - SDL_CONTROLLERDEVICEADDED → SDL_EVENT_GAMEPAD_ADDED
- * - SDL_CONTROLLERDEVICEREMOVED → SDL_EVENT_GAMEPAD_REMOVED
- * - SDL_GameControllerOpen → SDL_OpenGamepad
- * - SDL_GameControllerClose → SDL_CloseGamepad
- * - SDL_GameControllerName → SDL_GetGamepadName
- * - e.cbutton → e.gbutton (estructura del evento)
- * - SDL_CONTROLLER_BUTTON_A → SDL_GAMEPAD_BUTTON_SOUTH
- * - SDL_CONTROLLER_BUTTON_START → SDL_GAMEPAD_BUTTON_START
- * - SDL_QUIT → SDL_EVENT_QUIT
- * - SDL_KEYDOWN → SDL_EVENT_KEY_DOWN
- */
 void manejarEventos(Juego* juego) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
@@ -581,14 +526,14 @@ void manejarEventos(Juego* juego) {
             if (e.key.key == SDLK_SPACE && juego->macheteEquipado)
                 usarMachete(juego);
             if (e.key.key == SDLK_ESCAPE)
-                juego->estado = ESTADO_MENU;
+                juego->estado = ESTADO_PAUSADO;  // ← CAMBIADO: pausa en vez de menú
         }
 
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH && juego->macheteEquipado)
                 usarMachete(juego);
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START)
-                juego->estado = ESTADO_MENU;
+                juego->estado = ESTADO_PAUSADO;  // ← CAMBIADO: pausa en vez de menú
         }
 
         if (e.type == SDL_EVENT_GAMEPAD_ADDED && !juego->gamepad) {
@@ -607,17 +552,8 @@ void manejarEventos(Juego* juego) {
     }
 }
 
-/**
- * CAMBIOS SDL3 en actualizarJugador:
- * - SDL_GameController* → SDL_Gamepad*
- * - SDL_GameControllerGetAxis → SDL_GetGamepadAxis
- * - SDL_GameControllerGetButton → SDL_GetGamepadButton
- * - SDL_CONTROLLER_AXIS_LEFTX → SDL_GAMEPAD_AXIS_LEFTX
- * - SDL_CONTROLLER_AXIS_LEFTY → SDL_GAMEPAD_AXIS_LEFTY
- * - SDL_CONTROLLER_BUTTON_DPAD_* → SDL_GAMEPAD_BUTTON_DPAD_*
- */
 void actualizarJugador(Jugador* jugador, SDL_Gamepad* gamepad) {
-    const bool* teclas = SDL_GetKeyboardState(NULL);  // SDL3: const bool* en lugar de const Uint8*
+    const bool* teclas = SDL_GetKeyboardState(NULL);
 
     if (teclas[SDL_SCANCODE_W]) jugador->rect.y -= (float)jugador->velocidad;
     if (teclas[SDL_SCANCODE_S]) jugador->rect.y += (float)jugador->velocidad;
@@ -693,14 +629,9 @@ void actualizarEnemigos(Juego* juego) {
         juego->machete.activo = false;
 }
 
-/**
- * CAMBIOS SDL3 en renderizar:
- * - SDL_RenderCopy → SDL_RenderTexture (recibe SDL_FRect*)
- * - SDL_RenderDrawRect → SDL_RenderRect
- * - SDL_RenderDrawLine → SDL_RenderLine (parámetros float)
- * - SDL_RenderFillRect → SDL_RenderFillRect (ahora recibe SDL_FRect*)
- */
-void renderizar(Juego* juego) {
+// Dibuja todo el juego en el buffer pero NO hace SDL_RenderPresent.
+// Usada tanto por renderizar() como por renderizarPausa() para evitar doble present.
+void dibujarJuego(Juego* juego) {
     SDL_RenderClear(juego->renderer);
 
     if (juego->texFondo)
@@ -725,27 +656,25 @@ void renderizar(Juego* juego) {
             centroX - RANGO_ATAQUE, centroY - RANGO_ATAQUE,
             (float)(RANGO_ATAQUE * 2), (float)(RANGO_ATAQUE * 2)
         };
-        SDL_RenderRect(juego->renderer, &rangoVisual);  // SDL3: SDL_RenderRect
+        SDL_RenderRect(juego->renderer, &rangoVisual);
 
         if (juego->machete.animandoAtaque) {
             SDL_SetRenderDrawColor(juego->renderer, 255, 255, 0, 255);
             float macheteX = juego->machete.rect.x + 24.0f;
             float macheteY = juego->machete.rect.y + 24.0f;
-            SDL_RenderLine(juego->renderer, centroX, centroY, macheteX, macheteY); // SDL3: float
+            SDL_RenderLine(juego->renderer, centroX, centroY, macheteX, macheteY);
         }
     }
 
     mostrarPuntuacionPantalla(juego);
     renderizarBarraCooldown(juego);
-    SDL_RenderPresent(juego->renderer);
 }
 
-/**
- * CAMBIOS SDL3 en limpiarRecursos:
- * - SDL_GameControllerClose → SDL_CloseGamepad
- * - SDL_FreeSurface → SDL_DestroySurface (ya cubierto en renderizarTexto)
- * - TTF_Quit, IMG_Quit, SDL_Quit permanecen iguales
- */
+void renderizar(Juego* juego) {
+    dibujarJuego(juego);
+    SDL_RenderPresent(juego->renderer);  // unico present en el flujo normal
+}
+
 void limpiarRecursos(Juego* juego) {
     if (juego->gamepad)    SDL_CloseGamepad(juego->gamepad);
     if (juego->texJugador) SDL_DestroyTexture(juego->texJugador);
@@ -768,11 +697,6 @@ void reiniciarJuego(Juego* juego) {
     juego->estado                = ESTADO_JUGANDO;
 }
 
-/**
- * CAMBIOS SDL3 en renderizarMenu:
- * - SDL_RenderClear sigue igual.
- * - renderizarTexto ya usa SDL_RenderTexture internamente.
- */
 void renderizarMenu(Juego* juego) {
     SDL_RenderClear(juego->renderer);
 
@@ -804,18 +728,6 @@ void renderizarMenu(Juego* juego) {
     SDL_RenderPresent(juego->renderer);
 }
 
-/**
- * CAMBIOS SDL3 en manejarEventosMenu:
- * - Todos los SDL_KEYDOWN → SDL_EVENT_KEY_DOWN
- * - e.key.keysym.sym → e.key.key
- * - SDLK_UP/DOWN/RETURN/KP_ENTER siguen existiendo
- * - SDL_CONTROLLERBUTTONDOWN → SDL_EVENT_GAMEPAD_BUTTON_DOWN
- * - SDL_CONTROLLERDEVICEADDED/REMOVED → SDL_EVENT_GAMEPAD_ADDED/REMOVED
- * - SDL_MOUSEMOTION → SDL_EVENT_MOUSE_MOTION
- * - SDL_MOUSEBUTTONDOWN → SDL_EVENT_MOUSE_BUTTON_DOWN
- * - e.motion.y → e.motion.y (mismo nombre)
- * - e.button.y → e.button.y (mismo nombre)
- */
 void manejarEventosMenu(Juego* juego) {
     const int totalOpciones = 3;
     const int inicioY       = 320;
@@ -924,12 +836,12 @@ void renderizarInstrucciones(Juego* juego) {
     renderizarTexto(juego, "TECLADO",                                          200, 170, amarillo);
     renderizarTexto(juego, "W / A / S / D       Mover al jugador",             200, 220, blanco);
     renderizarTexto(juego, "ESPACIO             Atacar con el machete",         200, 270, blanco);
-    renderizarTexto(juego, "ESC                 Volver al menu",                200, 320, blanco);
+    renderizarTexto(juego, "ESC                 Pausar el juego",               200, 320, blanco);  // ← actualizado
 
     renderizarTexto(juego, "CONTROL PS3/PS4/XBOX",                             200, 400, amarillo);
     renderizarTexto(juego, "Stick izq / D-pad   Mover al jugador",             200, 450, blanco);
     renderizarTexto(juego, "Boton Sur (Cruz/A)  Atacar con el machete",        200, 500, blanco);
-    renderizarTexto(juego, "START               Volver al menu",               200, 550, blanco);
+    renderizarTexto(juego, "START               Pausar el juego",              200, 550, blanco);  // ← actualizado
 
     renderizarTexto(juego, "Cada 5 puntos aparece un enemigo nuevo",           200, 630, blanco);
     renderizarTexto(juego, "Con 20 puntos aparece el machete en el mapa",      200, 680, blanco);
@@ -946,7 +858,7 @@ void renderizarInstrucciones(Juego* juego) {
            (e.key.key == SDLK_ESCAPE || e.key.key == SDLK_BACKSPACE))
             juego->estado = ESTADO_MENU;
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-            e.gbutton.button == SDL_GAMEPAD_BUTTON_EAST)  // SDL3: EAST = Círculo PS3 / B Xbox
+            e.gbutton.button == SDL_GAMEPAD_BUTTON_EAST)
             juego->estado = ESTADO_MENU;
     }
 }
@@ -986,6 +898,61 @@ void renderizarGameOver(Juego* juego) {
                 juego->estado = ESTADO_MENU;
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START)
                 juego->ejecutando = false;
+        }
+    }
+}
+
+// ============================================
+// NUEVO: Pantalla de pausa
+// No toca ningún dato del juego — solo congela y muestra opciones
+// ============================================
+void renderizarPausa(Juego* juego) {
+    // Dibuja el juego congelado en el buffer (SIN RenderPresent todavia)
+    dibujarJuego(juego);
+
+    // Overlay oscuro semitransparente encima
+    SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(juego->renderer, 0, 0, 0, 150);
+    SDL_FRect overlay = {0.0f, 0.0f, (float)ANCHO_VENTANA, (float)ALTO_VENTANA};
+    SDL_RenderFillRect(juego->renderer, &overlay);
+
+    SDL_Color amarillo = {255, 220,   0, 255};
+    SDL_Color blanco   = {255, 255, 255, 255};
+    SDL_Color rojo     = {220,  50,  50, 255};
+
+    renderizarTexto(juego, "PAUSADO",
+        ANCHO_VENTANA / 2 - 85, 220, amarillo);
+    renderizarTexto(juego, "ESC / START         Continuar",
+        ANCHO_VENTANA / 2 - 210, 340, blanco);
+    renderizarTexto(juego, "Enter / Cruz(PS3)   Volver al menu",
+        ANCHO_VENTANA / 2 - 210, 410, blanco);
+    renderizarTexto(juego, "Q                   Salir del juego",
+        ANCHO_VENTANA / 2 - 210, 480, rojo);
+
+    SDL_RenderPresent(juego->renderer);
+
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_EVENT_QUIT) { juego->ejecutando = false; return; }
+
+        if (e.type == SDL_EVENT_KEY_DOWN) {
+            if (e.key.key == SDLK_ESCAPE)
+                juego->estado = ESTADO_JUGANDO;          // continuar sin tocar nada
+            if (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER) {
+                reiniciarJuego(juego);                   // reinicio explícito al ir al menú
+                juego->estado = ESTADO_MENU;
+            }
+            if (e.key.key == SDLK_Q)
+                juego->ejecutando = false;
+        }
+
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START)
+                juego->estado = ESTADO_JUGANDO;          // continuar
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH) {
+                reiniciarJuego(juego);
+                juego->estado = ESTADO_MENU;
+            }
         }
     }
 }

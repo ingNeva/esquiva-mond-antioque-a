@@ -1,8 +1,8 @@
 Iniciando...
 BasePath: C:\Users\lia\Documents\Proyectos\esquiva-mond-antioque-a\
-texFondo:   0000018524e7d360
-texJugador: 0000018524e7d4c0
-texEnemigo: 0000018524e7d200
-texMachete: 0000018524e7dba0
+texFondo:   000001579abd5b20
+texJugador: 000001579abd59c0
+texEnemigo: 000001579abd5c80
+texMachete: 000001579abd5860
 SDL_GetError: 
 Todo OK, entrando al game loop
