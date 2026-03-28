@@ -1,4 +1,4 @@
 Iniciando...
 BasePath: C:\Users\lia\Documents\Proyectos\esquiva-mond-antioque-a\
-texFondo:0000017f97b9a4d0 texJugador:0000017f97b9a210 texEnemigo:0000017f9b5109b0 texMachete:0000017f9b5111f0
+texFondo:000001a1d22f92f0 texJugador:000001a1d22f8270 texEnemigo:000001a1d22f8c10 texMachete:000001a1d22f9450
 Todo OK, entrando al game loop

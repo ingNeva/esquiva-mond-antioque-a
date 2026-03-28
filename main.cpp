@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <SDL3_mixer/SDL_mixer.h>
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
@@ -9,18 +10,18 @@
 #include <cstdio>
 #ifdef _WIN32
     #include <windows.h>
-    #include <direct.h>   // _mkdir
+    #include <direct.h>
 #else
     #include <unistd.h>
-    #include <sys/stat.h> // mkdir
+    #include <sys/stat.h>
 #endif
 
 // ============================================
 // Constantes del juego
 // ============================================
 #define MAX_ENEMIGOS              50
-#define ANCHO_VENTANA             1400
-#define ALTO_VENTANA              900
+#define ANCHO_VENTANA             1360
+#define ALTO_VENTANA              768
 #define TAMANO_SPRITE             64
 #define COOLDOWN_MACHETE          2000
 #define RANGO_ATAQUE              150
@@ -40,6 +41,42 @@
 #endif
 
 // ============================================
+// Umbrales de nivel
+// ============================================
+#define UMBRAL_NIVEL_1   0
+#define UMBRAL_NIVEL_2   5
+#define UMBRAL_NIVEL_3   10
+#define UMBRAL_NIVEL_4   15
+#define UMBRAL_NIVEL_5   65
+
+// ============================================
+// Duracion de la transicion de nivel (ms)
+// ============================================
+#define DURACION_TRANSICION       2500
+
+// ============================================
+// Audio
+// ============================================
+#define VOLUMEN_MUSICA_DEFAULT  64
+
+#define RUTA_MUSICA_MENU        "musica/Map (basic version).wav"
+#define RUTA_MUSICA_PAUSA       "musica/Map.wav"
+#define RUTA_MUSICA_NIVELES123  "musica/Mars.wav"
+#define RUTA_MUSICA_NIVEL4      "musica/BossIntro.wav"
+#define RUTA_MUSICA_NIVEL5      "musica/BossMain.wav"
+#define RUTA_MUSICA_GAMEOVER    "musica/Warp Jingle.wav"
+
+enum EstadoPista {
+    PISTA_NINGUNA,
+    PISTA_MENU,
+    PISTA_PAUSA,
+    PISTA_NIVELES123,
+    PISTA_NIVEL4,       // se reproduce UNA sola vez, luego pasa a nivel 5
+    PISTA_NIVEL5,
+    PISTA_GAMEOVER      // se reproduce UNA sola vez, luego pasa a menu
+};
+
+// ============================================
 // ESTRUCTURAS DE PUNTAJES
 // ============================================
 struct EntradaPuntaje {
@@ -49,7 +86,7 @@ struct EntradaPuntaje {
 
 struct TablaPuntajes {
     EntradaPuntaje entradas[MAX_PUNTAJES];
-    int            cantidad;  // entradas validas (0-5)
+    int            cantidad;
 };
 
 // ============================================
@@ -59,9 +96,10 @@ enum EstadoJuego {
     ESTADO_MENU,
     ESTADO_JUGANDO,
     ESTADO_INSTRUCCIONES,
-    ESTADO_INGRESANDO_NOMBRE,  // captura nombre si entro al top 5
+    ESTADO_INGRESANDO_NOMBRE,
     ESTADO_GAME_OVER,
-    ESTADO_PAUSADO
+    ESTADO_PAUSADO,
+    ESTADO_TRANSICION_NIVEL   // pantalla de transicion entre niveles
 };
 
 // ============================================
@@ -88,6 +126,13 @@ struct Machete {
     float  anguloActual;
 };
 
+struct TransicionNivel {
+    bool   activa;
+    int    nivelNuevo;         // nivel al que se transiciona
+    Uint64 inicio;             // timestamp de inicio
+    EstadoJuego estadoAnterior;
+};
+
 struct Juego {
     SDL_Window*    ventana;
     SDL_Renderer*  renderer;
@@ -96,7 +141,7 @@ struct Juego {
     SDL_Texture*   texEnemigo;
     SDL_Texture*   texMachete;
     TTF_Font*      fuente;
-    TTF_Font*      fuentePequena;        // para top 5 y etiquetas secundarias
+    TTF_Font*      fuentePequena;
     Jugador        jugador;
     Enemigo        enemigos[MAX_ENEMIGOS];
     int            enemigosActivos;
@@ -112,7 +157,27 @@ struct Juego {
     TablaPuntajes  tablaPuntajes;
     char           nombreIngresado[MAX_NOMBRE];
     int            longitudNombre;
-    int            posicionNuevoPuntaje; // -1 si no entro al top 5
+    int            posicionNuevoPuntaje;
+
+    // --- Audio ---
+    MIX_Mixer*   mixer;
+    MIX_Track*   trackMusica;
+    MIX_Audio*   musicaMenu;
+    MIX_Audio*   musicaPausa;
+    MIX_Audio*   musicaNiveles123;
+    MIX_Audio*   musicaNivel4;
+    MIX_Audio*   musicaNivel5;
+    MIX_Audio*   musicaGameOver;
+    bool         musicaActiva;
+    int          volumenMusica;
+    EstadoPista  pistaSonando;
+
+    // Flags para pistas de un solo uso
+    bool         nivel4Reproducido;   // true cuando ya sono la intro del boss
+    bool         gameOverReproducido; // true cuando ya sono el jingle de gameover
+
+    // Transicion de nivel
+    TransicionNivel transicion;
 };
 
 // ============================================
@@ -121,6 +186,13 @@ struct Juego {
 bool  inicializarSDL(Juego* juego);
 bool  cargarTexturas(Juego* juego);
 bool  cargarFuente(Juego* juego);
+bool  inicializarAudio(Juego* juego);
+void  reproducirMusica(Juego* juego, EstadoPista pista);
+void  toggleMusicaMute(Juego* juego);
+void  ajustarVolumen(Juego* juego, int delta);
+void  limpiarAudio(Juego* juego);
+EstadoPista pistaSegunEstadoJuego(Juego* juego);
+int   nivelActual(int puntuacion);
 void  renderizarTexto(Juego* juego, const char* texto, int x, int y, SDL_Color color);
 void  renderizarTextoPequeno(Juego* juego, const char* texto, int x, int y, SDL_Color color);
 void  mostrarPuntuacionPantalla(Juego* juego);
@@ -149,16 +221,17 @@ void  manejarEventosMenu(Juego* juego);
 void  renderizarInstrucciones(Juego* juego);
 void  renderizarGameOver(Juego* juego);
 void  renderizarPausa(Juego* juego);
-// --- puntajes ---
 void  crearDirectorioSaves();
 void  cargarPuntajes(TablaPuntajes* tabla);
 void  guardarPuntajes(const TablaPuntajes* tabla);
 bool  calificaParaTop5(const TablaPuntajes* tabla, int puntuacion);
 int   insertarPuntaje(TablaPuntajes* tabla, const char* nombre, int puntuacion);
 void  renderizarTop5(Juego* juego, int x, int y, int posicionResaltada);
-// --- ingreso de nombre ---
 void  iniciarIngresoNombre(Juego* juego);
 void  renderizarIngresoNombre(Juego* juego);
+void  iniciarTransicionNivel(Juego* juego, int nivelNuevo);
+void  actualizarTransicionNivel(Juego* juego);
+void  renderizarTransicionNivel(Juego* juego);
 
 // ============================================
 // FUNCION PRINCIPAL
@@ -184,6 +257,9 @@ int main(int argc, char* argv[]) {
     juego.estado                 = ESTADO_MENU;
     juego.opcionMenuSeleccionada = 0;
     juego.posicionNuevoPuntaje   = -1;
+    juego.nivel4Reproducido      = false;
+    juego.gameOverReproducido    = false;
+    juego.transicion             = {};
 
     crearDirectorioSaves();
     cargarPuntajes(&juego.tablaPuntajes);
@@ -215,6 +291,10 @@ int main(int argc, char* argv[]) {
     juego.ejecutando            = true;
 
     while (juego.ejecutando) {
+        // --- Musica segun estado (solo si no hay transicion activa) ---
+        if (!juego.transicion.activa)
+            reproducirMusica(&juego, pistaSegunEstadoJuego(&juego));
+
         switch (juego.estado) {
             case ESTADO_MENU:
                 manejarEventosMenu(&juego);
@@ -231,7 +311,6 @@ int main(int argc, char* argv[]) {
                 actualizarEnemigos(&juego);
                 if (!juego.ejecutando) {
                     juego.ejecutando = true;
-                    // Si califica al top 5 primero pide el nombre
                     if (calificaParaTop5(&juego.tablaPuntajes, juego.puntuacion)) {
                         iniciarIngresoNombre(&juego);
                         juego.estado = ESTADO_INGRESANDO_NOMBRE;
@@ -250,6 +329,10 @@ int main(int argc, char* argv[]) {
             case ESTADO_GAME_OVER:
                 renderizarGameOver(&juego);
                 break;
+            case ESTADO_TRANSICION_NIVEL:
+                actualizarTransicionNivel(&juego);
+                renderizarTransicionNivel(&juego);
+                break;
         }
         SDL_Delay(16);
     }
@@ -259,11 +342,337 @@ int main(int argc, char* argv[]) {
 }
 
 // ============================================
+// NIVEL ACTUAL (basado en puntuacion)
+// ============================================
+int nivelActual(int puntuacion) {
+    if (puntuacion >= UMBRAL_NIVEL_5) return 5;
+    if (puntuacion >= UMBRAL_NIVEL_4) return 4;
+    if (puntuacion >= UMBRAL_NIVEL_3) return 3;
+    if (puntuacion >= UMBRAL_NIVEL_2) return 2;
+    return 1;
+}
+
+// ============================================
+// TRANSICION DE NIVEL
+// ============================================
+
+void iniciarTransicionNivel(Juego* juego, int nivelNuevo) {
+    juego->transicion.activa        = true;
+    juego->transicion.nivelNuevo    = nivelNuevo;
+    juego->transicion.inicio        = SDL_GetTicks();
+    juego->transicion.estadoAnterior = ESTADO_JUGANDO;
+
+    // Detener musica actual durante la transicion
+    if (juego->musicaActiva) {
+        MIX_StopTrack(juego->trackMusica, 0);
+        juego->pistaSonando = PISTA_NINGUNA;
+    }
+
+    juego->estado = ESTADO_TRANSICION_NIVEL;
+    SDL_Log("Iniciando transicion al nivel %d", nivelNuevo);
+}
+
+void actualizarTransicionNivel(Juego* juego) {
+    Uint64 elapsed = SDL_GetTicks() - juego->transicion.inicio;
+    if (elapsed >= DURACION_TRANSICION) {
+        juego->transicion.activa = false;
+        juego->estado = ESTADO_JUGANDO;
+        // Forzar re-play de la nueva musica
+        juego->pistaSonando = PISTA_NINGUNA;
+    }
+}
+
+void renderizarTransicionNivel(Juego* juego) {
+    Uint64 elapsed  = SDL_GetTicks() - juego->transicion.inicio;
+    float  progreso = (float)elapsed / (float)DURACION_TRANSICION; // 0..1
+    int    nivel    = juego->transicion.nivelNuevo;
+
+    // Colores de flash por nivel
+    SDL_Color colores[6][3] = {
+        {},                                                          // 0 (unused)
+        {},                                                          // 1 (unused)
+        {},                                                          // 2 (unused)
+        {},                                                          // 3 (unused)
+        {{255, 120,   0, 255}, {255, 60,  0, 255}, {200, 30, 0, 255}},  // nivel 4 (naranja/rojo)
+        {{180,   0, 255, 255}, {255, 0, 80, 255}, {80,  0, 200, 255}}   // nivel 5 (purpura/magenta)
+    };
+
+    // Seleccionar colores segun nivel (clamped)
+    int ni = (nivel >= 4 && nivel <= 5) ? nivel : 4;
+    SDL_Color c1 = colores[ni][0];
+    SDL_Color c2 = colores[ni][1];
+    SDL_Color c3 = colores[ni][2];
+
+    // Flash pulsante: alterna entre colores con el tiempo
+    float fase = sinf(progreso * (float)M_PI * 8.0f) * 0.5f + 0.5f; // 0..1 oscilante
+    Uint8 r = (Uint8)(c1.r * fase + c2.r * (1.0f - fase));
+    Uint8 g = (Uint8)(c1.g * fase + c2.g * (1.0f - fase));
+    Uint8 b = (Uint8)(c1.b * fase + c2.b * (1.0f - fase));
+
+    // Fade in/out del overlay (mas intenso en el centro de la transicion)
+    float envolvente = sinf(progreso * (float)M_PI); // 0->1->0
+    Uint8 alpha = (Uint8)(envolvente * 220.0f);
+
+    // Dibujar el juego de fondo
+    dibujarJuego(juego);
+
+    // Overlay de color pulsante
+    SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(juego->renderer, r, g, b, alpha);
+    SDL_FRect overlay = {0.0f, 0.0f, (float)ANCHO_VENTANA, (float)ALTO_VENTANA};
+    SDL_RenderFillRect(juego->renderer, &overlay);
+
+    // Flashes blancos rapidos al inicio
+    if (progreso < 0.15f) {
+        float flashAlpha = (0.15f - progreso) / 0.15f;
+        SDL_SetRenderDrawColor(juego->renderer, 255, 255, 255, (Uint8)(flashAlpha * 180.0f));
+        SDL_RenderFillRect(juego->renderer, &overlay);
+    }
+
+    SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+
+    // Texto del nivel — aparece en la fase central
+    if (progreso > 0.2f && progreso < 0.85f) {
+        float textoAlpha = sinf((progreso - 0.2f) / 0.65f * (float)M_PI);
+        (void)textoAlpha; // lo usaremos para el color del texto
+
+        SDL_Color colorTitulo;
+        SDL_Color colorSubtitulo;
+
+        if (nivel == 4) {
+            colorTitulo    = {255, 220,  40, 255};
+            colorSubtitulo = {255, 140,   0, 255};
+        } else {
+            colorTitulo    = {255,  60, 255, 255};
+            colorSubtitulo = {200,   0, 255, 255};
+        }
+
+        // Titulo centrado
+        const char* tituloNivel = (nivel == 4) ? "NIVEL 4" : "NIVEL 5";
+        const char* subtitulo   = (nivel == 4) ? "!EL JEFE SE ACERCA!" : "!MAXIMA DIFICULTAD!";
+
+        int txW = (int)SDL_strlen(tituloNivel) * 28;  // aprox ancho de fuente grande
+        int txH = 36;
+        renderizarTexto(juego, tituloNivel,
+            ANCHO_VENTANA / 2 - txW / 2,
+            ALTO_VENTANA / 2 - txH - 20,
+            colorTitulo);
+
+        int stW = (int)SDL_strlen(subtitulo) * 18;
+        renderizarTextoPequeno(juego, subtitulo,
+            ANCHO_VENTANA / 2 - stW / 2,
+            ALTO_VENTANA / 2 + 20,
+            colorSubtitulo);
+
+        // Barra de progreso de la transicion
+        int barW = 400;
+        int barH = 8;
+        int barX = ANCHO_VENTANA / 2 - barW / 2;
+        int barY = ALTO_VENTANA / 2 + 80;
+
+        SDL_SetRenderDrawColor(juego->renderer, 50, 50, 50, 200);
+        SDL_FRect barFondo = {(float)barX, (float)barY, (float)barW, (float)barH};
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+        SDL_RenderFillRect(juego->renderer, &barFondo);
+
+        SDL_SetRenderDrawColor(juego->renderer, c3.r, c3.g, c3.b, 255);
+        SDL_FRect barRelleno = {(float)barX, (float)barY, barW * progreso, (float)barH};
+        SDL_RenderFillRect(juego->renderer, &barRelleno);
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+    }
+
+    SDL_RenderPresent(juego->renderer);
+}
+
+// ============================================
+// AUDIO
+// ============================================
+
+bool inicializarAudio(Juego* juego) {
+    if (!MIX_Init()) {
+        SDL_Log("MIX_Init fallo: %s", SDL_GetError());
+        juego->musicaActiva = false;
+        juego->pistaSonando = PISTA_NINGUNA;
+        return true;
+    }
+
+    juego->mixer = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
+    if (!juego->mixer) {
+        SDL_Log("Sin audio: %s", SDL_GetError());
+        juego->musicaActiva = false;
+        juego->pistaSonando = PISTA_NINGUNA;
+        return true;
+    }
+
+    juego->trackMusica      = MIX_CreateTrack(juego->mixer);
+    juego->musicaMenu       = MIX_LoadAudio(juego->mixer, RUTA_MUSICA_MENU,       false);
+    juego->musicaPausa      = MIX_LoadAudio(juego->mixer, RUTA_MUSICA_PAUSA,      false);
+    juego->musicaNiveles123 = MIX_LoadAudio(juego->mixer, RUTA_MUSICA_NIVELES123, false);
+    juego->musicaNivel4     = MIX_LoadAudio(juego->mixer, RUTA_MUSICA_NIVEL4,     false);
+    juego->musicaNivel5     = MIX_LoadAudio(juego->mixer, RUTA_MUSICA_NIVEL5,     false);
+    juego->musicaGameOver   = MIX_LoadAudio(juego->mixer, RUTA_MUSICA_GAMEOVER,   false);
+
+    juego->musicaActiva  = true;
+    juego->volumenMusica = VOLUMEN_MUSICA_DEFAULT;
+    juego->pistaSonando  = PISTA_NINGUNA;
+
+    MIX_SetTrackGain(juego->trackMusica, juego->volumenMusica / 128.0f);
+
+    if (!juego->musicaMenu)       SDL_Log("Audio: no se cargo %s", RUTA_MUSICA_MENU);
+    if (!juego->musicaPausa)      SDL_Log("Audio: no se cargo %s", RUTA_MUSICA_PAUSA);
+    if (!juego->musicaNiveles123) SDL_Log("Audio: no se cargo %s", RUTA_MUSICA_NIVELES123);
+    if (!juego->musicaNivel4)     SDL_Log("Audio: no se cargo %s", RUTA_MUSICA_NIVEL4);
+    if (!juego->musicaNivel5)     SDL_Log("Audio: no se cargo %s", RUTA_MUSICA_NIVEL5);
+    if (!juego->musicaGameOver)   SDL_Log("Audio: no se cargo %s", RUTA_MUSICA_GAMEOVER);
+
+    return true;
+}
+
+// Determina que pista debe sonar segun el estado y puntuacion actual.
+// PISTA_NIVEL4 solo se usa mientras !nivel4Reproducido.
+// PISTA_GAMEOVER solo se usa mientras !gameOverReproducido.
+EstadoPista pistaSegunEstadoJuego(Juego* juego) {
+    switch (juego->estado) {
+        case ESTADO_MENU:
+        case ESTADO_INSTRUCCIONES:
+        case ESTADO_INGRESANDO_NOMBRE:
+            return PISTA_MENU;
+
+        case ESTADO_PAUSADO:
+            return PISTA_PAUSA;
+
+        case ESTADO_GAME_OVER:
+            // Si el jingle ya termino (o ya se marco como reproducido), usar menu
+            if (juego->gameOverReproducido)
+                return PISTA_MENU;
+            return PISTA_GAMEOVER;
+
+        case ESTADO_JUGANDO: {
+            int nivel = nivelActual(juego->puntuacion);
+            if (nivel <= 3) return PISTA_NIVELES123;
+            if (nivel == 4) {
+                // Si la intro del boss aun no se reprodujo, usarla (una vez)
+                if (!juego->nivel4Reproducido)
+                    return PISTA_NIVEL4;
+                // Ya sono -> ir directo a nivel 5
+                return PISTA_NIVEL5;
+            }
+            return PISTA_NIVEL5;
+        }
+
+        case ESTADO_TRANSICION_NIVEL:
+            return PISTA_NINGUNA; // musica pausada durante la transicion
+
+        default:
+            return PISTA_MENU;
+    }
+}
+
+void reproducirMusica(Juego* juego, EstadoPista pista) {
+    if (!juego->musicaActiva) return;
+    if (juego->pistaSonando == pista) {
+        // Caso especial: verificar si NIVEL4 ya termino (sin loop)
+        if (pista == PISTA_NIVEL4) {
+            // Si el track ya no esta sonando, la pista termino -> pasar a nivel 5
+            // SDL3_mixer no tiene un "is playing" directo, lo simulamos con
+            // el flag nivel4Reproducido que se activa al comenzar la pista.
+            // Tras DURACION_MUSICA_NIVEL4 ms la marcamos. Aqui usamos el mismo
+            // pistaSonando; el cambio se detecta en la proxima llamada via
+            // nivel4Reproducido = true que se setea abajo.
+        }
+        return;
+    }
+
+    MIX_Audio* objetivo = nullptr;
+    bool loopInfinito   = true;
+
+    switch (pista) {
+        case PISTA_MENU:       objetivo = juego->musicaMenu;       loopInfinito = true;  break;
+        case PISTA_PAUSA:      objetivo = juego->musicaPausa;      loopInfinito = true;  break;
+        case PISTA_NIVELES123: objetivo = juego->musicaNiveles123; loopInfinito = true;  break;
+        case PISTA_NIVEL4:     objetivo = juego->musicaNivel4;     loopInfinito = false; break; // UNA VEZ
+        case PISTA_NIVEL5:     objetivo = juego->musicaNivel5;     loopInfinito = true;  break;
+        case PISTA_GAMEOVER:   objetivo = juego->musicaGameOver;   loopInfinito = false; break; // UNA VEZ
+        default: return;
+    }
+
+    if (!objetivo) {
+        juego->pistaSonando = pista;
+        // Si no hay archivo, marcar como ya reproducido
+        if (pista == PISTA_NIVEL4)   juego->nivel4Reproducido   = true;
+        if (pista == PISTA_GAMEOVER) juego->gameOverReproducido  = true;
+        return;
+    }
+
+    MIX_StopTrack(juego->trackMusica, 0);
+    MIX_SetTrackAudio(juego->trackMusica, objetivo);
+
+    SDL_PropertiesID props = SDL_CreateProperties();
+    if (loopInfinito) {
+        SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, -1);
+    } else {
+        SDL_SetNumberProperty(props, MIX_PROP_PLAY_LOOPS_NUMBER, 0); // 0 = una vez
+    }
+    MIX_PlayTrack(juego->trackMusica, props);
+    SDL_DestroyProperties(props);
+
+    juego->pistaSonando = pista;
+
+    // Marcar flags de "ya se reprodujo"
+    if (pista == PISTA_NIVEL4)   juego->nivel4Reproducido   = true;
+    if (pista == PISTA_GAMEOVER) juego->gameOverReproducido  = true;
+}
+
+// Llamar periodicamente en GAME OVER para detectar cuando termino el jingle
+void verificarFinGameOver(Juego* juego) {
+    if (juego->estado != ESTADO_GAME_OVER) return;
+    if (!juego->gameOverReproducido) return;
+    if (juego->pistaSonando == PISTA_MENU) return;
+
+    // Si el track ya no suena, cambiar a menu
+    // (reproducirMusica cambiara automaticamente cuando pistaSonando != pistaSegunEstadoJuego)
+    // Solo necesitamos forzar el cambio la primera vez que se detecta el fin.
+    // Como no tenemos "isPlaying", usamos el comportamiento de reproducirMusica:
+    // pistaSegunEstadoJuego devuelve PISTA_MENU cuando gameOverReproducido=true.
+    // Entonces la siguiente llamada a reproducirMusica() con esa pista disparara el cambio.
+    reproducirMusica(juego, PISTA_MENU);
+}
+
+void toggleMusicaMute(Juego* juego) {
+    juego->musicaActiva = !juego->musicaActiva;
+    if (juego->musicaActiva) {
+        MIX_SetTrackGain(juego->trackMusica, juego->volumenMusica / 128.0f);
+        juego->pistaSonando = PISTA_NINGUNA;
+    } else {
+        MIX_StopTrack(juego->trackMusica, 0);
+        juego->pistaSonando = PISTA_NINGUNA;
+    }
+}
+
+void ajustarVolumen(Juego* juego, int delta) {
+    juego->volumenMusica = SDL_clamp(juego->volumenMusica + delta, 0, 128);
+    if (juego->musicaActiva)
+        MIX_SetTrackGain(juego->trackMusica, juego->volumenMusica / 128.0f);
+}
+
+void limpiarAudio(Juego* juego) {
+    if (juego->trackMusica)      MIX_DestroyTrack(juego->trackMusica);
+    if (juego->musicaMenu)       MIX_DestroyAudio(juego->musicaMenu);
+    if (juego->musicaPausa)      MIX_DestroyAudio(juego->musicaPausa);
+    if (juego->musicaNiveles123) MIX_DestroyAudio(juego->musicaNiveles123);
+    if (juego->musicaNivel4)     MIX_DestroyAudio(juego->musicaNivel4);
+    if (juego->musicaNivel5)     MIX_DestroyAudio(juego->musicaNivel5);
+    if (juego->musicaGameOver)   MIX_DestroyAudio(juego->musicaGameOver);
+    if (juego->mixer)            MIX_DestroyMixer(juego->mixer);
+    MIX_Quit();
+}
+
+// ============================================
 // SDL E INICIALIZACION
 // ============================================
 
 bool inicializarSDL(Juego* juego) {
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
         SDL_Log("Error SDL: %s", SDL_GetError());
         return false;
     }
@@ -274,6 +683,8 @@ bool inicializarSDL(Juego* juego) {
     if (!juego->renderer) { SDL_Log("Error renderer: %s", SDL_GetError()); return false; }
 
     if (!TTF_Init()) { SDL_Log("Error TTF: %s", SDL_GetError()); return false; }
+
+    inicializarAudio(juego);
 
     juego->gamepad = nullptr;
     int count = 0;
@@ -315,7 +726,7 @@ bool cargarFuente(Juego* juego) {
 
     juego->fuentePequena = TTF_OpenFont("Arial Black.ttf", 22);
     if (!juego->fuentePequena)
-        juego->fuentePequena = juego->fuente;  // fallback
+        juego->fuentePequena = juego->fuente;
 
     return true;
 }
@@ -349,9 +760,7 @@ void renderizarTextoPequeno(Juego* juego, const char* texto, int x, int y, SDL_C
 }
 
 // ============================================
-// SISTEMA DE PUNTAJES — ARCHIVO BINARIO
-// Formato: [int cantidad][EntradaPuntaje x cantidad]
-// Tamaño máximo: 4 + 5*(32+4) = 184 bytes
+// SISTEMA DE PUNTAJES
 // ============================================
 
 void crearDirectorioSaves() {
@@ -397,7 +806,6 @@ bool calificaParaTop5(const TablaPuntajes* tabla, int puntuacion) {
     return puntuacion > tabla->entradas[tabla->cantidad - 1].puntuacion;
 }
 
-// Inserta ordenado desc. Retorna indice donde quedo (0 = primer lugar).
 int insertarPuntaje(TablaPuntajes* tabla, const char* nombre, int puntuacion) {
     int pos = tabla->cantidad;
     for (int i = 0; i < tabla->cantidad; i++) {
@@ -415,7 +823,6 @@ int insertarPuntaje(TablaPuntajes* tabla, const char* nombre, int puntuacion) {
     return pos;
 }
 
-// Dibuja el top 5. posicionResaltada=-1 para ninguno, verde para el nuevo.
 void renderizarTop5(Juego* juego, int x, int y, int posicionResaltada) {
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
@@ -459,7 +866,7 @@ void renderizarTop5(Juego* juego, int x, int y, int posicionResaltada) {
 }
 
 // ============================================
-// INGRESO DE NOMBRE (nuevo estado)
+// INGRESO DE NOMBRE
 // ============================================
 
 void iniciarIngresoNombre(Juego* juego) {
@@ -477,44 +884,35 @@ void renderizarIngresoNombre(Juego* juego) {
     SDL_Color verde    = { 80, 255, 120, 255};
     SDL_Color gris     = {130, 130, 130, 255};
 
-    // Titulo
     renderizarTexto(juego, "NUEVO RECORD!", ANCHO_VENTANA / 2 - 175, 110, amarillo);
 
-    // Puntaje
     char msgPuntaje[64];
     SDL_snprintf(msgPuntaje, sizeof(msgPuntaje), "Puntuacion: %d", juego->puntuacion);
     renderizarTexto(juego, msgPuntaje, ANCHO_VENTANA / 2 - 140, 190, blanco);
 
-    // Instruccion
     renderizarTextoPequeno(juego, "Ingresa tu nombre (max 31 caracteres) y presiona Enter",
         ANCHO_VENTANA / 2 - 300, 270, gris);
 
-    // Caja de texto
     SDL_SetRenderDrawColor(juego->renderer, 50, 50, 50, 255);
     SDL_FRect caja = {(float)(ANCHO_VENTANA / 2 - 220), 320.0f, 440.0f, 54.0f};
     SDL_RenderFillRect(juego->renderer, &caja);
     SDL_SetRenderDrawColor(juego->renderer, 255, 220, 0, 255);
     SDL_RenderRect(juego->renderer, &caja);
 
-    // Texto ingresado + cursor parpadeante
     char textoMostrado[MAX_NOMBRE + 2];
     bool cursorVisible = (SDL_GetTicks() / 500) % 2 == 0;
     SDL_snprintf(textoMostrado, sizeof(textoMostrado), "%s%s",
         juego->nombreIngresado, cursorVisible ? "_" : " ");
-    renderizarTexto(juego, textoMostrado,
-        ANCHO_VENTANA / 2 - 205, 330, verde);
+    renderizarTexto(juego, textoMostrado, ANCHO_VENTANA / 2 - 205, 330, verde);
 
-    // Top 5 a la derecha
     renderizarTop5(juego, ANCHO_VENTANA - 430, 110, -1);
 
-    // Ayuda inferior
     renderizarTextoPequeno(juego,
         "Enter: confirmar    ESC: cancelar (puntaje no guardado)",
         ANCHO_VENTANA / 2 - 310, ALTO_VENTANA - 55, gris);
 
     SDL_RenderPresent(juego->renderer);
 
-    // Eventos
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_EVENT_QUIT) {
@@ -564,6 +962,30 @@ void mostrarPuntuacionPantalla(Juego* juego) {
     SDL_Color blanco = {255, 255, 255, 255};
     std::string txt = "Score: " + std::to_string(juego->puntuacion);
     renderizarTexto(juego, txt.c_str(), 10, 10, blanco);
+
+    int nivel = nivelActual(juego->puntuacion);
+    char txtNivel[32];
+    SDL_snprintf(txtNivel, sizeof(txtNivel), "Nivel: %d", nivel);
+    SDL_Color colorNivel;
+    switch (nivel) {
+        case 1: case 2: case 3: colorNivel = {100, 220, 100, 255}; break;
+        case 4: colorNivel = {255, 165, 0, 255};   break;
+        case 5: colorNivel = {220, 50,  50, 255};   break;
+        default: colorNivel = {255, 255, 255, 255}; break;
+    }
+    renderizarTexto(juego, txtNivel, 10, 52, colorNivel);
+
+    SDL_Color colorAudio = juego->musicaActiva
+        ? (SDL_Color){80, 255, 120, 255}
+        : (SDL_Color){180, 180, 180, 255};
+
+    char textoAudio[32];
+    if (juego->musicaActiva)
+        SDL_snprintf(textoAudio, sizeof(textoAudio), "Vol:%d%%",
+            juego->volumenMusica * 100 / 128);
+    else
+        SDL_snprintf(textoAudio, sizeof(textoAudio), "SIN AUDIO");
+    renderizarTextoPequeno(juego, textoAudio, ANCHO_VENTANA - 130, 10, colorAudio);
 }
 
 void inicializarJugador(Jugador* jugador) {
@@ -641,23 +1063,20 @@ float calcularProgresoCooldown(Juego* juego) {
     return (float)t / (float)COOLDOWN_MACHETE;
 }
 
-// Barra de cooldown con icono, gradiente de color y etiqueta
 void renderizarBarraCooldown(Juego* juego) {
     if (!juego->macheteEquipado) return;
 
     float progreso = calcularProgresoCooldown(juego);
 
-    const int barX     = BARRA_COOLDOWN_X;
-    const int barY     = BARRA_COOLDOWN_Y;
-    const int barW     = BARRA_COOLDOWN_ANCHO;
-    const int barH     = BARRA_COOLDOWN_ALTO;
-    const int offsetX  = 34;   // espacio para el icono
+    const int barX    = BARRA_COOLDOWN_X;
+    const int barY    = BARRA_COOLDOWN_Y;
+    const int barW    = BARRA_COOLDOWN_ANCHO;
+    const int barH    = BARRA_COOLDOWN_ALTO;
+    const int offsetX = 34;
 
-    // Icono del machete
     SDL_FRect icono = {(float)barX, (float)(barY - 4), 28.0f, 28.0f};
     SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &icono);
 
-    // Borde negro
     SDL_SetRenderDrawColor(juego->renderer, 0, 0, 0, 255);
     SDL_FRect borde = {
         (float)(barX + offsetX - 2), (float)(barY - 2),
@@ -665,12 +1084,10 @@ void renderizarBarraCooldown(Juego* juego) {
     };
     SDL_RenderFillRect(juego->renderer, &borde);
 
-    // Fondo oscuro
     SDL_SetRenderDrawColor(juego->renderer, 35, 35, 35, 255);
     SDL_FRect fondo = {(float)(barX + offsetX), (float)barY, (float)barW, (float)barH};
     SDL_RenderFillRect(juego->renderer, &fondo);
 
-    // Gradiente rojo → amarillo → verde segun carga
     Uint8 r, g, b;
     if (progreso < 0.5f) {
         r = 255; g = (Uint8)(progreso * 2.0f * 200); b = 0;
@@ -684,7 +1101,6 @@ void renderizarBarraCooldown(Juego* juego) {
     };
     SDL_RenderFillRect(juego->renderer, &relleno);
 
-    // Brillo superior semitransparente
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(juego->renderer, 255, 255, 255, 55);
     SDL_FRect brillo = {
@@ -694,7 +1110,6 @@ void renderizarBarraCooldown(Juego* juego) {
     SDL_RenderFillRect(juego->renderer, &brillo);
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
 
-    // Etiqueta de estado a la derecha de la barra
     char etiqueta[48];
     SDL_Color colorEtiqueta;
     if (progreso >= 1.0f) {
@@ -789,6 +1204,12 @@ void manejarEventos(Juego* juego) {
                 usarMachete(juego);
             if (e.key.key == SDLK_ESCAPE)
                 juego->estado = ESTADO_PAUSADO;
+            if (e.key.key == SDLK_M)
+                toggleMusicaMute(juego);
+            if (e.key.key == SDLK_EQUALS || e.key.key == SDLK_PLUS)
+                ajustarVolumen(juego, 16);
+            if (e.key.key == SDLK_MINUS)
+                ajustarVolumen(juego, -16);
         }
 
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
@@ -846,17 +1267,29 @@ bool verificarColision(SDL_FRect* a, SDL_FRect* b) {
 }
 
 void actualizarEnemigos(Juego* juego) {
-    int nivel = juego->puntuacion / 5;
+    int nivel = nivelActual(juego->puntuacion);
+
+    // Detectar subida de nivel y disparar transicion para nivel 4 y 5
     if (nivel > juego->ultimoNivelDificultad && juego->enemigosActivos < MAX_ENEMIGOS) {
         generarEnemigo(&juego->enemigos[juego->enemigosActivos]);
         juego->enemigosActivos++;
+        SDL_Log("Subio al nivel %d — Enemigos activos: %d", nivel, juego->enemigosActivos);
+
+        // Transicion animada al pasar a nivel 4 o 5
+        if (nivel == 4 || nivel == 5) {
+            juego->ultimoNivelDificultad = nivel;
+            iniciarTransicionNivel(juego, nivel);
+            return; // salir para no seguir actualizando este frame
+        }
+
         juego->ultimoNivelDificultad = nivel;
     }
 
-    if (juego->puntuacion >= 20 && !juego->macheteAparecido && !juego->machete.recogido) {
+    // El machete aparece al alcanzar el nivel 4
+    if (juego->puntuacion >= UMBRAL_NIVEL_4 && !juego->macheteAparecido && !juego->machete.recogido) {
         aparecerMachete(juego);
         juego->macheteAparecido = true;
-        SDL_Log("Machete aparecio!");
+        SDL_Log("Machete aparecio! (nivel 4, puntuacion %d)", juego->puntuacion);
     }
 
     for (int i = 0; i < juego->enemigosActivos; i++) {
@@ -896,7 +1329,7 @@ void dibujarJuego(Juego* juego) {
     for (int i = 0; i < juego->enemigosActivos; i++)
         SDL_RenderTexture(juego->renderer, juego->texEnemigo, NULL, &juego->enemigos[i].rect);
 
-    if (juego->puntuacion >= 20 || juego->macheteEquipado)
+    if (juego->puntuacion >= UMBRAL_NIVEL_4 || juego->macheteEquipado)
         if (!juego->machete.recogido || juego->macheteEquipado)
             SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
 
@@ -930,6 +1363,7 @@ void renderizar(Juego* juego) {
 // ============================================
 
 void limpiarRecursos(Juego* juego) {
+    limpiarAudio(juego);
     if (juego->gamepad) SDL_CloseGamepad(juego->gamepad);
     if (juego->texJugador) SDL_DestroyTexture(juego->texJugador);
     if (juego->texEnemigo) SDL_DestroyTexture(juego->texEnemigo);
@@ -955,11 +1389,15 @@ void reiniciarJuego(Juego* juego) {
     juego->macheteAparecido      = false;
     juego->ultimoNivelDificultad = 0;
     juego->posicionNuevoPuntaje  = -1;
+    juego->pistaSonando          = PISTA_NINGUNA;
+    juego->nivel4Reproducido     = false;   // reset para nueva partida
+    juego->gameOverReproducido   = false;
+    juego->transicion            = {};
     juego->estado                = ESTADO_JUGANDO;
 }
 
 // ============================================
-// MENU PRINCIPAL (top 5 lado derecho)
+// MENU PRINCIPAL
 // ============================================
 
 void renderizarMenu(Juego* juego) {
@@ -987,13 +1425,20 @@ void renderizarMenu(Juego* juego) {
         "Flechas/DPad: navegar    Enter/Cruz: seleccionar",
         80, ALTO_VENTANA - 50, gris);
 
-    // Divisor vertical central
+    SDL_Color colorAudio = juego->musicaActiva
+        ? (SDL_Color){80, 255, 120, 255}
+        : (SDL_Color){180, 180, 180, 255};
+    char textoAudio[32];
+    SDL_snprintf(textoAudio, sizeof(textoAudio),
+        juego->musicaActiva ? "M: Vol %d%%" : "M: SIN AUDIO",
+        juego->volumenMusica * 100 / 128);
+    renderizarTextoPequeno(juego, textoAudio, 80, ALTO_VENTANA - 80, colorAudio);
+
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
     SDL_RenderLine(juego->renderer,
         (float)(ANCHO_VENTANA/2), 80.0f,
         (float)(ANCHO_VENTANA/2), (float)(ALTO_VENTANA - 70));
 
-    // Top 5 lado derecho
     renderizarTop5(juego, ANCHO_VENTANA/2 + 60, 100, -1);
 
     SDL_RenderPresent(juego->renderer);
@@ -1023,6 +1468,15 @@ void manejarEventosMenu(Juego* juego) {
                         case 1: juego->estado = ESTADO_INSTRUCCIONES; break;
                         case 2: juego->ejecutando = false;            break;
                     }
+                    break;
+                case SDLK_M:
+                    toggleMusicaMute(juego);
+                    break;
+                case SDLK_EQUALS: case SDLK_PLUS:
+                    ajustarVolumen(juego, 16);
+                    break;
+                case SDLK_MINUS:
+                    ajustarVolumen(juego, -16);
                     break;
                 default: break;
             }
@@ -1092,24 +1546,34 @@ void renderizarInstrucciones(Juego* juego) {
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
     SDL_Color gris     = {130, 130, 130, 255};
+    SDL_Color verde    = { 80, 220,  80, 255};
+    SDL_Color naranja  = {255, 165,   0, 255};
+    SDL_Color rojo     = {220,  50,  50, 255};
 
-    renderizarTexto(juego, "INSTRUCCIONES", ANCHO_VENTANA/2 - 150, 80, amarillo);
+    renderizarTexto(juego, "INSTRUCCIONES", ANCHO_VENTANA/2 - 150, 50, amarillo);
 
-    renderizarTexto(juego, "TECLADO",                                     200, 170, amarillo);
-    renderizarTexto(juego, "W / A / S / D       Mover al jugador",        200, 220, blanco);
-    renderizarTexto(juego, "ESPACIO             Atacar con el machete",    200, 270, blanco);
-    renderizarTexto(juego, "ESC                 Pausar el juego",          200, 320, blanco);
+    renderizarTexto(juego, "TECLADO",                                       200, 120, amarillo);
+    renderizarTexto(juego, "W / A / S / D       Mover al jugador",          200, 165, blanco);
+    renderizarTexto(juego, "ESPACIO             Atacar con el machete",      200, 210, blanco);
+    renderizarTexto(juego, "ESC                 Pausar el juego",            200, 255, blanco);
+    renderizarTexto(juego, "M                   Silenciar / activar musica", 200, 300, blanco);
+    renderizarTexto(juego, "+ / -               Subir / bajar volumen",      200, 345, blanco);
 
-    renderizarTexto(juego, "CONTROL PS3/PS4/XBOX",                        200, 400, amarillo);
-    renderizarTexto(juego, "Stick izq / D-pad   Mover al jugador",        200, 450, blanco);
-    renderizarTexto(juego, "Boton Sur (Cruz/A)  Atacar con el machete",   200, 500, blanco);
-    renderizarTexto(juego, "START               Pausar el juego",         200, 550, blanco);
+    renderizarTexto(juego, "CONTROL PS3/PS4/XBOX",                          200, 415, amarillo);
+    renderizarTexto(juego, "Stick izq / D-pad   Mover al jugador",          200, 460, blanco);
+    renderizarTexto(juego, "Boton Sur (Cruz/A)  Atacar con el machete",     200, 505, blanco);
+    renderizarTexto(juego, "START               Pausar el juego",           200, 550, blanco);
 
-    renderizarTexto(juego, "Cada 5 puntos aparece un enemigo nuevo",      200, 630, blanco);
-    renderizarTexto(juego, "Con 20 puntos aparece el machete en el mapa", 200, 680, blanco);
+    renderizarTexto(juego, "NIVELES",                                        200, 600, amarillo);
+    renderizarTextoPequeno(juego, "Niv 1-3  (0-14 pts):  musica tranquila, enemigos basicos",
+        200, 645, verde);
+    renderizarTextoPequeno(juego, "Niv 4    (15-64 pts): intro de jefe, aparece el machete",
+        200, 680, naranja);
+    renderizarTextoPequeno(juego, "Niv 5    (65+ pts):   musica epica, maxima dificultad",
+        200, 715, rojo);
 
     renderizarTextoPequeno(juego, "ESC / Circulo(PS3) para volver",
-        ANCHO_VENTANA/2 - 200, ALTO_VENTANA - 50, gris);
+        ANCHO_VENTANA/2 - 200, ALTO_VENTANA - 40, gris);
 
     SDL_RenderPresent(juego->renderer);
 
@@ -1126,10 +1590,16 @@ void renderizarInstrucciones(Juego* juego) {
 }
 
 // ============================================
-// GAME OVER (top 5 lado derecho, entrada resaltada)
+// GAME OVER
 // ============================================
 
 void renderizarGameOver(Juego* juego) {
+    // Verificar si el jingle de game over ya termino para pasar a musica del menu
+    // Como loops=0 (una sola vez), tras reproducirse pistaSonando!=PISTA_MENU todavia,
+    // pero pistaSegunEstadoJuego() devolvera PISTA_MENU porque gameOverReproducido=true.
+    // reproducirMusica() hara el cambio automaticamente en el loop principal.
+    // Solo necesitamos no bloquear el poll de eventos.
+
     SDL_RenderClear(juego->renderer);
 
     SDL_Color rojo     = {220,  50,  50, 255};
@@ -1143,23 +1613,25 @@ void renderizarGameOver(Juego* juego) {
     SDL_snprintf(scoreTexto, sizeof(scoreTexto), "Puntuacion: %d", juego->puntuacion);
     renderizarTexto(juego, scoreTexto, 100, 250, blanco);
 
+    char nivelTexto[64];
+    SDL_snprintf(nivelTexto, sizeof(nivelTexto), "Nivel alcanzado: %d", nivelActual(juego->puntuacion));
+    renderizarTexto(juego, nivelTexto, 100, 320, amarillo);
+
     if (juego->posicionNuevoPuntaje >= 0) {
         char msgPos[64];
         SDL_snprintf(msgPos, sizeof(msgPos),
             "TOP 5! Puesto #%d", juego->posicionNuevoPuntaje + 1);
-        renderizarTexto(juego, msgPos, 100, 320, verde);
+        renderizarTexto(juego, msgPos, 100, 390, verde);
     }
 
-    renderizarTexto(juego, "Enter / Cruz    Menu principal", 100, 470, amarillo);
-    renderizarTexto(juego, "ESC / START     Salir",          100, 545, amarillo);
+    renderizarTexto(juego, "Enter / Cruz    Menu principal", 100, 490, amarillo);
+    renderizarTexto(juego, "ESC / START     Salir",          100, 560, amarillo);
 
-    // Divisor vertical
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
     SDL_RenderLine(juego->renderer,
         (float)(ANCHO_VENTANA/2), 80.0f,
         (float)(ANCHO_VENTANA/2), (float)(ALTO_VENTANA - 70));
 
-    // Top 5 lado derecho, con la nueva entrada resaltada en verde
     renderizarTop5(juego, ANCHO_VENTANA/2 + 60, 100, juego->posicionNuevoPuntaje);
 
     SDL_RenderPresent(juego->renderer);
@@ -1191,7 +1663,7 @@ void renderizarGameOver(Juego* juego) {
 // ============================================
 
 void renderizarPausa(Juego* juego) {
-    dibujarJuego(juego);   // juego congelado de fondo
+    dibujarJuego(juego);
 
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(juego->renderer, 0, 0, 0, 150);
@@ -1202,15 +1674,29 @@ void renderizarPausa(Juego* juego) {
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
     SDL_Color rojo     = {220,  50,  50, 255};
+    SDL_Color gris     = {130, 130, 130, 255};
 
     renderizarTexto(juego, "PAUSADO",
-        ANCHO_VENTANA/2 - 85, 220, amarillo);
+        ANCHO_VENTANA/2 - 85, 200, amarillo);
     renderizarTexto(juego, "ESC / START         Continuar",
-        ANCHO_VENTANA/2 - 210, 340, blanco);
+        ANCHO_VENTANA/2 - 210, 310, blanco);
     renderizarTexto(juego, "Enter / Cruz(PS3)   Volver al menu",
-        ANCHO_VENTANA/2 - 210, 410, blanco);
+        ANCHO_VENTANA/2 - 210, 380, blanco);
     renderizarTexto(juego, "Q                   Salir del juego",
-        ANCHO_VENTANA/2 - 210, 480, rojo);
+        ANCHO_VENTANA/2 - 210, 450, rojo);
+    renderizarTexto(juego, "M                   Musica ON/OFF",
+        ANCHO_VENTANA/2 - 210, 520, blanco);
+    renderizarTexto(juego, "+ / -               Volumen",
+        ANCHO_VENTANA/2 - 210, 590, blanco);
+
+    SDL_Color colorAudio = juego->musicaActiva
+        ? (SDL_Color){80, 255, 120, 255}
+        : (SDL_Color){180, 180, 180, 255};
+    char textoAudio[48];
+    SDL_snprintf(textoAudio, sizeof(textoAudio),
+        juego->musicaActiva ? "Audio: ON  Vol:%d%%" : "Audio: SILENCIADO",
+        juego->volumenMusica * 100 / 128);
+    renderizarTextoPequeno(juego, textoAudio, ANCHO_VENTANA/2 - 100, 660, colorAudio);
 
     SDL_RenderPresent(juego->renderer);
 
@@ -1226,6 +1712,12 @@ void renderizarPausa(Juego* juego) {
             }
             if (e.key.key == SDLK_Q)
                 juego->ejecutando = false;
+            if (e.key.key == SDLK_M)
+                toggleMusicaMute(juego);
+            if (e.key.key == SDLK_EQUALS || e.key.key == SDLK_PLUS)
+                ajustarVolumen(juego, 16);
+            if (e.key.key == SDLK_MINUS)
+                ajustarVolumen(juego, -16);
         }
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START)
