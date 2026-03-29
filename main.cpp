@@ -44,10 +44,10 @@
 // Umbrales de nivel
 // ============================================
 #define UMBRAL_NIVEL_1   0
-#define UMBRAL_NIVEL_2   5
-#define UMBRAL_NIVEL_3   10
-#define UMBRAL_NIVEL_4   15
-#define UMBRAL_NIVEL_5   65
+#define UMBRAL_NIVEL_2   20
+#define UMBRAL_NIVEL_3   40
+#define UMBRAL_NIVEL_4   80
+#define UMBRAL_NIVEL_5   160
 
 // ============================================
 // Duracion de la transicion de nivel (ms)
@@ -133,10 +133,17 @@ struct TransicionNivel {
     EstadoJuego estadoAnterior;
 };
 
+// Rutas de los fondos por nivel (1-5)
+#define RUTA_FONDO_NIVEL1  "imagenes/bg_nivel1.png"
+#define RUTA_FONDO_NIVEL2  "imagenes/bg_nivel2.png"
+#define RUTA_FONDO_NIVEL3  "imagenes/bg_nivel3.png"
+#define RUTA_FONDO_NIVEL4  "imagenes/bg_nivel4.png"
+#define RUTA_FONDO_NIVEL5  "imagenes/bg_nivel5.png"
+
 struct Juego {
     SDL_Window*    ventana;
     SDL_Renderer*  renderer;
-    SDL_Texture*   texFondo;
+    SDL_Texture*   texFondos[5];   // fondos para niveles 1-5 (indice 0=nivel1 ... 4=nivel5)
     SDL_Texture*   texJugador;
     SDL_Texture*   texEnemigo;
     SDL_Texture*   texMachete;
@@ -387,45 +394,51 @@ void renderizarTransicionNivel(Juego* juego) {
     float  progreso = (float)elapsed / (float)DURACION_TRANSICION; // 0..1
     int    nivel    = juego->transicion.nivelNuevo;
 
-    // Colores de flash por nivel
-    SDL_Color colores[6][3] = {
-        {},                                                          // 0 (unused)
-        {},                                                          // 1 (unused)
-        {},                                                          // 2 (unused)
-        {},                                                          // 3 (unused)
-        {{255, 120,   0, 255}, {255, 60,  0, 255}, {200, 30, 0, 255}},  // nivel 4 (naranja/rojo)
-        {{180,   0, 255, 255}, {255, 0, 80, 255}, {80,  0, 200, 255}}   // nivel 5 (purpura/magenta)
-    };
+    // ---- Dibujamos el fondo destino (ya con la nueva habitacion) ----
+    SDL_RenderClear(juego->renderer);
+    int idxDestino = SDL_clamp(nivel - 1, 0, 4);
+    int idxOrigen  = SDL_clamp(nivel - 2, 0, 4);
 
-    // Seleccionar colores segun nivel (clamped)
-    int ni = (nivel >= 4 && nivel <= 5) ? nivel : 4;
-    SDL_Color c1 = colores[ni][0];
-    SDL_Color c2 = colores[ni][1];
-    SDL_Color c3 = colores[ni][2];
+    // Fondo de la habitacion anterior (se va)
+    if (juego->texFondos[idxOrigen])
+        SDL_RenderTexture(juego->renderer, juego->texFondos[idxOrigen], NULL, NULL);
 
-    // Flash pulsante: alterna entre colores con el tiempo
-    float fase = sinf(progreso * (float)M_PI * 8.0f) * 0.5f + 0.5f; // 0..1 oscilante
-    Uint8 r = (Uint8)(c1.r * fase + c2.r * (1.0f - fase));
-    Uint8 g = (Uint8)(c1.g * fase + c2.g * (1.0f - fase));
-    Uint8 b = (Uint8)(c1.b * fase + c2.b * (1.0f - fase));
+    // Fondo de la nueva habitacion aparece gradualmente desde el centro de la transicion
+    if (juego->texFondos[idxDestino]) {
+        float alphaNew = SDL_clamp((progreso - 0.3f) / 0.5f, 0.0f, 1.0f);
+        SDL_SetTextureAlphaMod(juego->texFondos[idxDestino], (Uint8)(alphaNew * 255.0f));
+        SDL_RenderTexture(juego->renderer, juego->texFondos[idxDestino], NULL, NULL);
+        SDL_SetTextureAlphaMod(juego->texFondos[idxDestino], 255);
+    }
 
-    // Fade in/out del overlay (mas intenso en el centro de la transicion)
-    float envolvente = sinf(progreso * (float)M_PI); // 0->1->0
-    Uint8 alpha = (Uint8)(envolvente * 220.0f);
+    // ---- Overlay de color segun nivel (pulsante) ----
+    // Colores: nivel 4 = naranja/rojo, nivel 5 = purpura/magenta
+    float fase = sinf(progreso * (float)M_PI * 8.0f) * 0.5f + 0.5f;
+    Uint8 ov_r, ov_g, ov_b;
+    Uint8 barR, barG, barB;
+    if (nivel == 4) {
+        ov_r = (Uint8)(255*fase + 200*(1.0f-fase));
+        ov_g = (Uint8)(100*fase +  40*(1.0f-fase));
+        ov_b = 0;
+        barR=200; barG=80;  barB=0;
+    } else {
+        ov_r = (Uint8)(180*fase + 255*(1.0f-fase));
+        ov_g = 0;
+        ov_b = (Uint8)(255*fase + 180*(1.0f-fase));
+        barR=120; barG=0;   barB=220;
+    }
+    float envolvente = sinf(progreso * (float)M_PI);
+    Uint8 ov_alpha   = (Uint8)(envolvente * 160.0f);
 
-    // Dibujar el juego de fondo
-    dibujarJuego(juego);
-
-    // Overlay de color pulsante
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(juego->renderer, r, g, b, alpha);
+    SDL_SetRenderDrawColor(juego->renderer, ov_r, ov_g, ov_b, ov_alpha);
     SDL_FRect overlay = {0.0f, 0.0f, (float)ANCHO_VENTANA, (float)ALTO_VENTANA};
     SDL_RenderFillRect(juego->renderer, &overlay);
 
     // Flashes blancos rapidos al inicio
     if (progreso < 0.15f) {
         float flashAlpha = (0.15f - progreso) / 0.15f;
-        SDL_SetRenderDrawColor(juego->renderer, 255, 255, 255, (Uint8)(flashAlpha * 180.0f));
+        SDL_SetRenderDrawColor(juego->renderer, 255, 255, 255, (Uint8)(flashAlpha * 200.0f));
         SDL_RenderFillRect(juego->renderer, &overlay);
     }
 
@@ -433,9 +446,6 @@ void renderizarTransicionNivel(Juego* juego) {
 
     // Texto del nivel — aparece en la fase central
     if (progreso > 0.2f && progreso < 0.85f) {
-        float textoAlpha = sinf((progreso - 0.2f) / 0.65f * (float)M_PI);
-        (void)textoAlpha; // lo usaremos para el color del texto
-
         SDL_Color colorTitulo;
         SDL_Color colorSubtitulo;
 
@@ -443,40 +453,37 @@ void renderizarTransicionNivel(Juego* juego) {
             colorTitulo    = {255, 220,  40, 255};
             colorSubtitulo = {255, 140,   0, 255};
         } else {
-            colorTitulo    = {255,  60, 255, 255};
-            colorSubtitulo = {200,   0, 255, 255};
+            colorTitulo    = {220, 100, 255, 255};
+            colorSubtitulo = {180,  40, 255, 255};
         }
 
-        // Titulo centrado
+        // Titulo y subtitulo centrados
         const char* tituloNivel = (nivel == 4) ? "NIVEL 4" : "NIVEL 5";
         const char* subtitulo   = (nivel == 4) ? "!EL JEFE SE ACERCA!" : "!MAXIMA DIFICULTAD!";
 
-        int txW = (int)SDL_strlen(tituloNivel) * 28;  // aprox ancho de fuente grande
-        int txH = 36;
+        int txW = (int)SDL_strlen(tituloNivel) * 28;
         renderizarTexto(juego, tituloNivel,
             ANCHO_VENTANA / 2 - txW / 2,
-            ALTO_VENTANA / 2 - txH - 20,
+            ALTO_VENTANA  / 2 - 56,
             colorTitulo);
 
         int stW = (int)SDL_strlen(subtitulo) * 18;
         renderizarTextoPequeno(juego, subtitulo,
             ANCHO_VENTANA / 2 - stW / 2,
-            ALTO_VENTANA / 2 + 20,
+            ALTO_VENTANA  / 2 + 8,
             colorSubtitulo);
 
-        // Barra de progreso de la transicion
-        int barW = 400;
-        int barH = 8;
-        int barX = ANCHO_VENTANA / 2 - barW / 2;
-        int barY = ALTO_VENTANA / 2 + 80;
+        // Barra de progreso
+        const int barW = 400, barH = 8;
+        const int barX = ANCHO_VENTANA / 2 - barW / 2;
+        const int barY = ALTO_VENTANA  / 2 + 70;
 
-        SDL_SetRenderDrawColor(juego->renderer, 50, 50, 50, 200);
-        SDL_FRect barFondo = {(float)barX, (float)barY, (float)barW, (float)barH};
         SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(juego->renderer, 30, 30, 30, 180);
+        SDL_FRect barFondo   = {(float)barX,               (float)barY, (float)barW,           (float)barH};
         SDL_RenderFillRect(juego->renderer, &barFondo);
-
-        SDL_SetRenderDrawColor(juego->renderer, c3.r, c3.g, c3.b, 255);
-        SDL_FRect barRelleno = {(float)barX, (float)barY, barW * progreso, (float)barH};
+        SDL_SetRenderDrawColor(juego->renderer, barR, barG, barB, 255);
+        SDL_FRect barRelleno = {(float)barX,               (float)barY, barW * progreso,        (float)barH};
         SDL_RenderFillRect(juego->renderer, &barRelleno);
         SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
     }
@@ -705,16 +712,31 @@ bool inicializarSDL(Juego* juego) {
 }
 
 bool cargarTexturas(Juego* juego) {
-    juego->texFondo   = IMG_LoadTexture(juego->renderer, "imagenes/fondo.png");
+    // Fondos por nivel (1 a 5) — se almacenan en texFondos[0..4]
+    const char* rutasFondos[5] = {
+        RUTA_FONDO_NIVEL1,
+        RUTA_FONDO_NIVEL2,
+        RUTA_FONDO_NIVEL3,
+        RUTA_FONDO_NIVEL4,
+        RUTA_FONDO_NIVEL5
+    };
+    for (int i = 0; i < 5; i++) {
+        juego->texFondos[i] = IMG_LoadTexture(juego->renderer, rutasFondos[i]);
+        if (!juego->texFondos[i])
+            SDL_Log("Advertencia: no se cargo fondo nivel %d (%s): %s",
+                    i+1, rutasFondos[i], SDL_GetError());
+    }
+
     juego->texJugador = IMG_LoadTexture(juego->renderer, "imagenes/player.png");
     juego->texEnemigo = IMG_LoadTexture(juego->renderer, "imagenes/enemy.png");
     juego->texMachete = IMG_LoadTexture(juego->renderer, "imagenes/machete.png");
 
     FILE* log = fopen("log.txt", "a");
     if (log) {
-        fprintf(log, "texFondo:%p texJugador:%p texEnemigo:%p texMachete:%p\n",
-            (void*)juego->texFondo, (void*)juego->texJugador,
-            (void*)juego->texEnemigo, (void*)juego->texMachete);
+        for (int i = 0; i < 5; i++)
+            fprintf(log, "texFondo[%d]:%p\n", i+1, (void*)juego->texFondos[i]);
+        fprintf(log, "texJugador:%p texEnemigo:%p texMachete:%p\n",
+            (void*)juego->texJugador, (void*)juego->texEnemigo, (void*)juego->texMachete);
         fclose(log);
     }
     return (juego->texJugador && juego->texEnemigo && juego->texMachete);
@@ -1321,8 +1343,31 @@ void actualizarEnemigos(Juego* juego) {
 void dibujarJuego(Juego* juego) {
     SDL_RenderClear(juego->renderer);
 
-    if (juego->texFondo)
-        SDL_RenderTexture(juego->renderer, juego->texFondo, NULL, NULL);
+    // ---- Fondo segun nivel actual ----
+    // Si hay transicion activa, mezclar fondo actual y fondo destino
+    int nivelIdx     = SDL_clamp(nivelActual(juego->puntuacion) - 1, 0, 4);
+    SDL_Texture* texFondoActual = juego->texFondos[nivelIdx];
+
+    if (juego->transicion.activa) {
+        // Durante la transicion mostramos el fondo del nivel al que se llega
+        int nivelDestino = SDL_clamp(juego->transicion.nivelNuevo - 1, 0, 4);
+        SDL_Texture* texFondoDestino = juego->texFondos[nivelDestino];
+        // Dibujar fondo base (nivel anterior)
+        if (texFondoActual)
+            SDL_RenderTexture(juego->renderer, texFondoActual, NULL, NULL);
+        // Superponer fondo destino con opacidad segun progreso de transicion
+        if (texFondoDestino) {
+            float progreso = (float)(SDL_GetTicks() - juego->transicion.inicio)
+                             / (float)DURACION_TRANSICION;
+            float alpha = SDL_clamp(progreso * 1.6f - 0.3f, 0.0f, 1.0f); // fade in en el tramo central
+            SDL_SetTextureAlphaMod(texFondoDestino, (Uint8)(alpha * 255.0f));
+            SDL_RenderTexture(juego->renderer, texFondoDestino, NULL, NULL);
+            SDL_SetTextureAlphaMod(texFondoDestino, 255); // restaurar
+        }
+    } else {
+        if (texFondoActual)
+            SDL_RenderTexture(juego->renderer, texFondoActual, NULL, NULL);
+    }
 
     SDL_RenderTexture(juego->renderer, juego->texJugador, NULL, &juego->jugador.rect);
 
@@ -1368,7 +1413,8 @@ void limpiarRecursos(Juego* juego) {
     if (juego->texJugador) SDL_DestroyTexture(juego->texJugador);
     if (juego->texEnemigo) SDL_DestroyTexture(juego->texEnemigo);
     if (juego->texMachete) SDL_DestroyTexture(juego->texMachete);
-    if (juego->texFondo)   SDL_DestroyTexture(juego->texFondo);
+    for (int i = 0; i < 5; i++)
+        if (juego->texFondos[i]) SDL_DestroyTexture(juego->texFondos[i]);
     if (juego->fuentePequena && juego->fuentePequena != juego->fuente)
         TTF_CloseFont(juego->fuentePequena);
     if (juego->fuente)     TTF_CloseFont(juego->fuente);
