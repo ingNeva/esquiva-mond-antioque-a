@@ -100,7 +100,7 @@ enum EstadoJuego {
     ESTADO_GAME_OVER,
     ESTADO_PAUSADO,
     ESTADO_TRANSICION_NIVEL,
-    ESTADO_CUENTA_REGRESIVA    // NUEVO: pantalla 3-2-1 antes de jugar
+    ESTADO_CUENTA_REGRESIVA
 };
 
 // ============================================
@@ -134,7 +134,6 @@ struct TransicionNivel {
     EstadoJuego estadoAnterior;
 };
 
-// Rutas de los fondos por nivel (1-5)
 #define RUTA_FONDO_NIVEL1  "imagenes/bg_nivel1.png"
 #define RUTA_FONDO_NIVEL2  "imagenes/bg_nivel2.png"
 #define RUTA_FONDO_NIVEL3  "imagenes/bg_nivel3.png"
@@ -167,7 +166,6 @@ struct Juego {
     int            longitudNombre;
     int            posicionNuevoPuntaje;
 
-    // --- Audio ---
     MIX_Mixer*   mixer;
     MIX_Track*   trackMusica;
     MIX_Audio*   musicaMenu;
@@ -183,13 +181,11 @@ struct Juego {
     bool         nivel4Reproducido;
     bool         gameOverReproducido;
 
-    // Transicion de nivel
     TransicionNivel transicion;
 
-    // --- NUEVOS CAMPOS ---
     Uint64 inicioCuentaRegresiva;
-    int    opcionGameOverSel;    // 0=jugar de nuevo, 1=menu, 2=salir
-    int    opcionPausaSel;       // 0=continuar, 1=menu, 2=salir
+    int    opcionGameOverSel;
+    int    opcionPausaSel;
 };
 
 // ============================================
@@ -537,7 +533,7 @@ EstadoPista pistaSegunEstadoJuego(Juego* juego) {
         case ESTADO_MENU:
         case ESTADO_INSTRUCCIONES:
         case ESTADO_INGRESANDO_NOMBRE:
-        case ESTADO_CUENTA_REGRESIVA:   // cuenta regresiva usa musica del menu
+        case ESTADO_CUENTA_REGRESIVA:
             return PISTA_MENU;
 
         case ESTADO_PAUSADO:
@@ -735,7 +731,6 @@ void renderizarTextoPequeno(Juego* juego, const char* texto, int x, int y, SDL_C
     SDL_DestroySurface(sup);
 }
 
-// Renderiza texto centrado horizontalmente usando TTF_GetStringSize para precision real
 void renderizarTextoCentrado(Juego* juego, TTF_Font* fuente, const char* texto, int y, SDL_Color color) {
     int w = 0, h = 0;
     TTF_GetStringSize(fuente, texto, 0, &w, &h);
@@ -755,6 +750,24 @@ void renderizarTextoCentradoPequeno(Juego* juego, const char* texto, int y, SDL_
     renderizarTextoCentrado(juego, juego->fuentePequena, texto, y, color);
 }
 
+// Helper: renderiza texto centrado dentro de un ancho dado, comenzando desde x
+static void renderizarTextoCentradoEnColumna(Juego* juego, TTF_Font* fuente,
+    const char* texto, int colX, int colAncho, int y, SDL_Color color) {
+    int w = 0, h = 0;
+    TTF_GetStringSize(fuente, texto, 0, &w, &h);
+    int x = colX + (colAncho - w) / 2;
+    if (x < colX) x = colX;
+    SDL_Surface* sup = TTF_RenderText_Solid(fuente, texto, 0, color);
+    if (!sup) return;
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(juego->renderer, sup);
+    if (tex) {
+        SDL_FRect dst = {(float)x, (float)y, (float)sup->w, (float)sup->h};
+        SDL_RenderTexture(juego->renderer, tex, NULL, &dst);
+        SDL_DestroyTexture(tex);
+    }
+    SDL_DestroySurface(sup);
+}
+
 // ============================================
 // HELPERS DE UI (boton y mouse)
 // ============================================
@@ -764,7 +777,6 @@ bool mouseEnRect(int mx, int my, int x, int y, int w, int h) {
 
 void dibujarBoton(Juego* juego, const char* texto, int x, int y, int w, int h,
                   bool seleccionado, SDL_Color colorNormal, SDL_Color colorHover) {
-    // Fondo del boton
     SDL_Color colorFondo = seleccionado
         ? (SDL_Color){60, 60, 80, 220}
         : (SDL_Color){30, 30, 40, 180};
@@ -777,12 +789,10 @@ void dibujarBoton(Juego* juego, const char* texto, int x, int y, int w, int h,
     SDL_RenderFillRect(juego->renderer, &rect);
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
 
-    // Borde
     SDL_SetRenderDrawColor(juego->renderer,
         colorBorde.r, colorBorde.g, colorBorde.b, 255);
     SDL_RenderRect(juego->renderer, &rect);
 
-    // Texto centrado en el boton
     int tw = 0, th = 0;
     TTF_GetStringSize(juego->fuentePequena, texto, 0, &tw, &th);
     int tx = x + (w - tw) / 2;
@@ -1439,10 +1449,9 @@ void reiniciarJuego(Juego* juego) {
 }
 
 // ============================================
-// CUENTA REGRESIVA (3-2-1 antes de jugar)
+// CUENTA REGRESIVA
 // ============================================
 void iniciarCuentaRegresiva(Juego* juego) {
-    // Preparar el juego pero sin activar el loop de juego todavia
     inicializarJugador(&juego->jugador);
     inicializarEnemigos(juego);
     inicializarMachete(juego);
@@ -1462,17 +1471,14 @@ void iniciarCuentaRegresiva(Juego* juego) {
 void renderizarCuentaRegresiva(Juego* juego) {
     Uint64 elapsed = SDL_GetTicks() - juego->inicioCuentaRegresiva;
 
-    // Tras 3.2 segundos, pasar a jugar
     if (elapsed >= 3200) {
         juego->estado = ESTADO_JUGANDO;
         return;
     }
 
-    // Fondo del nivel 1 como telón
     if (juego->texFondos[0])
         SDL_RenderTexture(juego->renderer, juego->texFondos[0], NULL, NULL);
 
-    // Overlay semitransparente
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(juego->renderer, 0, 0, 0, 145);
     SDL_FRect overlay = {0, 0, (float)ANCHO_VENTANA, (float)ALTO_VENTANA};
@@ -1484,13 +1490,11 @@ void renderizarCuentaRegresiva(Juego* juego) {
     SDL_Color gris     = {160, 160, 160, 255};
     SDL_Color verde    = { 80, 220, 100, 255};
 
-    // Separador
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
     SDL_RenderLine(juego->renderer,
         ANCHO_VENTANA/2 - 220, ALTO_VENTANA/2 - 125,
         ANCHO_VENTANA/2 + 220, ALTO_VENTANA/2 - 125);
 
-    // Recordatorio rapido de controles
     renderizarTextoCentradoPequeno(juego,
         "WASD / Flechas: mover   |   ESPACIO: machete   |   ESC: pausar",
         ALTO_VENTANA/2 - 175, gris);
@@ -1502,14 +1506,12 @@ void renderizarCuentaRegresiva(Juego* juego) {
         ANCHO_VENTANA/2 - 220, ALTO_VENTANA/2 - 115,
         ANCHO_VENTANA/2 + 220, ALTO_VENTANA/2 - 115);
 
-    // Numero de cuenta regresiva con efecto de escala pulsante
     int cuenta = 3 - (int)(elapsed / 1000);
     if (cuenta < 1) cuenta = 1;
 
     char numStr[4];
     SDL_snprintf(numStr, sizeof(numStr), "%d", cuenta);
 
-    // Escala: empieza grande al inicio de cada segundo, se reduce
     float fase = fmodf((float)(elapsed % 1000) / 1000.0f, 1.0f);
     float escala = 1.0f + (1.0f - fase) * 0.5f;
 
@@ -1531,7 +1533,6 @@ void renderizarCuentaRegresiva(Juego* juego) {
         SDL_DestroySurface(sup);
     }
 
-    // Barra de progreso de la cuenta
     const int barW = 320, barH = 6;
     const int barX = (ANCHO_VENTANA - barW) / 2;
     const int barY = ALTO_VENTANA/2 + 90;
@@ -1551,7 +1552,6 @@ void renderizarCuentaRegresiva(Juego* juego) {
 
     SDL_RenderPresent(juego->renderer);
 
-    // ESC cancela y vuelve al menu
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_EVENT_QUIT) { juego->ejecutando = false; return; }
@@ -1570,15 +1570,19 @@ void renderizarMenu(Juego* juego) {
     SDL_Color blanco   = {255, 255, 255, 255};
     SDL_Color gris     = {130, 130, 130, 255};
 
-    // Titulo centrado en la mitad izquierda
-    renderizarTextoCentrado(juego, juego->fuente, "ESQUIVAR BOTELLAS", 80, amarillo);
+    // Ancho de la columna izquierda (mitad izquierda de la ventana)
+    const int colIzqAncho = ANCHO_VENTANA / 2;
 
-    // Botones de opciones
+    // Titulo centrado dentro de la columna izquierda
+    renderizarTextoCentradoEnColumna(juego, juego->fuente,
+        "ESQUIVAR BOTELLAS", 0, colIzqAncho, 80, amarillo);
+
+    // Botones centrados dentro de la columna izquierda
     const char* opciones[]  = {"JUGAR", "INSTRUCCIONES", "SALIR"};
     const int totalOpciones = 3;
     const int botonW = 300;
     const int botonH = 52;
-    const int botonX = ANCHO_VENTANA / 4 - botonW / 2;
+    const int botonX = colIzqAncho / 2 - botonW / 2;
     const int btn0Y  = 210;
     const int btn1Y  = 280;
     const int btn2Y  = 350;
@@ -1593,9 +1597,9 @@ void renderizarMenu(Juego* juego) {
     }
 
     SDL_Color colorBordes[] = {
-        {255, 220, 0, 255},    // JUGAR — amarillo
-        {255, 220, 0, 255},    // INSTRUCCIONES — amarillo
-        {220,  60, 60, 255}    // SALIR — rojo
+        {255, 220, 0, 255},
+        {255, 220, 0, 255},
+        {220,  60, 60, 255}
     };
     SDL_Color colorTextos[] = {
         blanco,
@@ -1610,7 +1614,7 @@ void renderizarMenu(Juego* juego) {
             colorTextos[i], colorBordes[i]);
     }
 
-    // Info de audio y controles
+    // Info de audio y controles (alineada con los botones)
     SDL_Color colorAudio = juego->musicaActiva
         ? (SDL_Color){80, 255, 120, 255}
         : (SDL_Color){180, 180, 180, 255};
@@ -1623,12 +1627,14 @@ void renderizarMenu(Juego* juego) {
         "Flechas: navegar  |  Enter: seleccionar  |  + / -: volumen",
         botonX, ALTO_VENTANA - 45, gris);
 
-    // Divisor y Top 5
+    // Divisor vertical
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
     SDL_RenderLine(juego->renderer,
         (float)(ANCHO_VENTANA / 2), 60.0f,
         (float)(ANCHO_VENTANA / 2), (float)(ALTO_VENTANA - 30));
 
+    // Top 5 en la columna derecha — empieza en x = ANCHO/2 + 40, y = 80
+    // El divisor está en x=680, el Top5 en x=720: separación limpia
     renderizarTop5(juego, ANCHO_VENTANA / 2 + 40, 80, -1);
 
     SDL_RenderPresent(juego->renderer);
@@ -1638,7 +1644,7 @@ void manejarEventosMenu(Juego* juego) {
     const int totalOpciones = 3;
     const int botonW = 300;
     const int botonH = 52;
-    const int botonX = ANCHO_VENTANA / 4 - botonW / 2;
+    const int botonX = (ANCHO_VENTANA / 2) / 2 - botonW / 2;
     const int btnY[] = {210, 280, 350};
 
     auto seleccionar = [&](int opcion) {
@@ -1708,7 +1714,7 @@ void manejarEventosMenu(Juego* juego) {
 }
 
 // ============================================
-// INSTRUCCIONES (dos columnas, mouse en volver)
+// INSTRUCCIONES
 // ============================================
 void renderizarInstrucciones(Juego* juego) {
     SDL_RenderClear(juego->renderer);
@@ -1761,30 +1767,36 @@ void renderizarInstrucciones(Juego* juego) {
         {"Nivel 5    (160+)",      "Maxima dificultad",          rojo                },
     };
 
-    int ny = 175;
+    // FIX: caja h=70, espaciado=90 → gap real de 20px entre cajas
+    // El texto de descripcion queda en ny+30 (antes era +26 con caja de 62px)
+    int ny = 160;
     for (auto& nv : niveles) {
+        // Fondo de la caja (color muy oscuro del nivel)
         SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(juego->renderer,
             nv.color.r/5, nv.color.g/5, nv.color.b/5, 200);
-        SDL_FRect nr = {(float)colDer - 10, (float)ny - 6, 340.0f, 62.0f};
+        SDL_FRect nr = {(float)colDer - 10, (float)ny - 8, 340.0f, 70.0f};
         SDL_RenderFillRect(juego->renderer, &nr);
         SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+
+        // Borde de la caja con el color del nivel
         SDL_SetRenderDrawColor(juego->renderer, nv.color.r, nv.color.g, nv.color.b, 100);
         SDL_RenderRect(juego->renderer, &nr);
 
+        // Texto: rango (arriba) y descripcion (abajo, con mas margen)
         renderizarTextoPequeno(juego, nv.rango, colDer, ny,      nv.color);
-        renderizarTextoPequeno(juego, nv.desc,  colDer, ny + 26, blanco);
-        ny += 82;
+        renderizarTextoPequeno(juego, nv.desc,  colDer, ny + 30, blanco);
+        ny += 90;
     }
 
-    // Nota del machete
-    ny += 8;
+    // Nota del machete (con espacio suficiente despues de la ultima caja)
+    ny += 10;
     renderizarTextoPequeno(juego, "El machete gira 360 y elimina enemigos",
         colDer, ny, gris);
     renderizarTextoPequeno(juego, "en un radio de 150px — cooldown: 2 seg",
         colDer, ny + 28, gris);
 
-    // Boton VOLVER con soporte de mouse
+    // Boton VOLVER
     const int btnX = (ANCHO_VENTANA - 280) / 2;
     const int btnY = ALTO_VENTANA - 68;
     const int btnW = 280;
@@ -1818,7 +1830,7 @@ void renderizarInstrucciones(Juego* juego) {
 }
 
 // ============================================
-// GAME OVER (3 botones, mouse completo)
+// GAME OVER
 // ============================================
 void renderizarGameOver(Juego* juego) {
     SDL_RenderClear(juego->renderer);
@@ -1829,33 +1841,40 @@ void renderizarGameOver(Juego* juego) {
     SDL_Color verde    = { 80, 255, 120, 255};
     SDL_Color gris     = {130, 130, 130, 255};
 
-    // Titulo centrado
-    renderizarTextoCentrado(juego, juego->fuente, "GAME OVER", 72, rojo);
+    // Ancho de la columna izquierda
+    const int colIzqAncho = ANCHO_VENTANA / 2;
 
-    // Stats centrados
+    // FIX: titulo centrado solo en la columna izquierda para no pisar el Top5
+    renderizarTextoCentradoEnColumna(juego, juego->fuente,
+        "GAME OVER", 0, colIzqAncho, 40, rojo);
+
+    // Stats centrados en la columna izquierda
     char scoreTexto[64];
     SDL_snprintf(scoreTexto, sizeof(scoreTexto), "Puntuacion: %d", juego->puntuacion);
-    renderizarTextoCentrado(juego, juego->fuentePequena, scoreTexto, 162, blanco);
+    renderizarTextoCentradoEnColumna(juego, juego->fuentePequena,
+        scoreTexto, 0, colIzqAncho, 128, blanco);
 
     char nivelTexto[64];
     SDL_snprintf(nivelTexto, sizeof(nivelTexto),
         "Nivel alcanzado: %d", nivelActual(juego->puntuacion));
-    renderizarTextoCentrado(juego, juego->fuentePequena, nivelTexto, 198, amarillo);
+    renderizarTextoCentradoEnColumna(juego, juego->fuentePequena,
+        nivelTexto, 0, colIzqAncho, 164, amarillo);
 
     if (juego->posicionNuevoPuntaje >= 0) {
         char msgPos[64];
         SDL_snprintf(msgPos, sizeof(msgPos),
             "TOP 5!  Puesto #%d", juego->posicionNuevoPuntaje + 1);
-        renderizarTextoCentrado(juego, juego->fuentePequena, msgPos, 234, verde);
+        renderizarTextoCentradoEnColumna(juego, juego->fuentePequena,
+            msgPos, 0, colIzqAncho, 200, verde);
     }
 
-    // Botones en la mitad izquierda
+    // Botones en la columna izquierda
     const int btnW  = 300;
     const int btnH  = 52;
-    const int btnX  = ANCHO_VENTANA / 4 - btnW / 2;
-    const int btn0Y = 295;
-    const int btn1Y = 365;
-    const int btn2Y = 435;
+    const int btnX  = colIzqAncho / 2 - btnW / 2;
+    const int btn0Y = 255;
+    const int btn1Y = 325;
+    const int btn2Y = 395;
 
     float mx = 0, my = 0;
     SDL_GetMouseState(&mx, &my);
@@ -1883,13 +1902,14 @@ void renderizarGameOver(Juego* juego) {
         "Flechas: navegar  |  Enter: confirmar",
         btnX, ALTO_VENTANA - 44, gris);
 
-    // Divisor y Top 5
+    // Divisor vertical y Top 5 en columna derecha
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
     SDL_RenderLine(juego->renderer,
-        (float)(ANCHO_VENTANA / 2), 55.0f,
+        (float)(ANCHO_VENTANA / 2), 30.0f,
         (float)(ANCHO_VENTANA / 2), (float)(ALTO_VENTANA - 30));
 
-    renderizarTop5(juego, ANCHO_VENTANA / 2 + 40, 72, juego->posicionNuevoPuntaje);
+    // FIX: Top5 empieza en y=55, bien por debajo del titulo (y=40)
+    renderizarTop5(juego, ANCHO_VENTANA / 2 + 40, 55, juego->posicionNuevoPuntaje);
 
     SDL_RenderPresent(juego->renderer);
 
@@ -1947,12 +1967,11 @@ void renderizarGameOver(Juego* juego) {
 }
 
 // ============================================
-// PAUSA (botones centrados, mouse completo)
+// PAUSA
 // ============================================
 void renderizarPausa(Juego* juego) {
     dibujarJuego(juego);
 
-    // Overlay oscuro
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(juego->renderer, 0, 0, 0, 160);
     SDL_FRect overlay = {0, 0, (float)ANCHO_VENTANA, (float)ALTO_VENTANA};
@@ -1966,7 +1985,6 @@ void renderizarPausa(Juego* juego) {
 
     renderizarTextoCentrado(juego, juego->fuente, "PAUSADO", 140, amarillo);
 
-    // Botones centrados
     const int btnW  = 320;
     const int btnH  = 52;
     const int btnX  = (ANCHO_VENTANA - btnW) / 2;
@@ -1996,7 +2014,6 @@ void renderizarPausa(Juego* juego) {
         juego->opcionPausaSel == 2,
         (SDL_Color){180, 120, 120, 255}, rojo);
 
-    // Info de audio
     SDL_Color colorAudio = juego->musicaActiva
         ? (SDL_Color){80, 255, 120, 255}
         : (SDL_Color){180, 180, 180, 255};
