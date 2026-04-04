@@ -13,7 +13,6 @@ void dibujarJuego(Juego* juego) {
     SDL_Texture* texFondoActual = juego->texFondos[nivelIdx];
 
     if (juego->transicion.activa) {
-        // fondo origen = nivel anterior al destino
         int nivelOrigenIdx  = SDL_clamp(juego->transicion.nivelNuevo - 2, 0, 4);
         int nivelDestino    = SDL_clamp(juego->transicion.nivelNuevo - 1, 0, 4);
         SDL_Texture* texFondoOrigen  = juego->texFondos[nivelOrigenIdx];
@@ -106,22 +105,27 @@ void dibujarJuego(Juego* juego) {
         }
     }
 
-    // Machete
-    if (juego->nivelActual >= 4 || juego->macheteEquipado)
-        if (!juego->machete.recogido || juego->macheteEquipado)
-            SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
+    // ── Machete en suelo (sin recoger) ────────────────────────────
+    if ((juego->nivelActual >= 4 || juego->macheteEquipado) &&
+        !juego->machete.recogido &&
+        !juego->macheteEquipado)
+    {
+        SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
+    }
 
-    if (juego->machete.activo || juego->machete.animandoAtaque) {
-        float cx = juego->jugador.rect.x + TAMANO_SPRITE / 2.0f;
-        float cy = juego->jugador.rect.y + TAMANO_SPRITE / 2.0f;
-        SDL_SetRenderDrawColor(juego->renderer, 255, 50, 50, 255);
-        SDL_FRect rv = {cx - RANGO_ATAQUE, cy - RANGO_ATAQUE, (float)(RANGO_ATAQUE*2), (float)(RANGO_ATAQUE*2)};
-        SDL_RenderRect(juego->renderer, &rv);
-        if (juego->machete.animandoAtaque) {
-            SDL_SetRenderDrawColor(juego->renderer, 255, 255, 0, 255);
-            SDL_RenderLine(juego->renderer, cx, cy,
-                juego->machete.rect.x + 24.0f, juego->machete.rect.y + 24.0f);
-        }
+    // ── Machete equipado: reposo ───────────────────────────────────
+    if (juego->macheteEquipado && !juego->machete.animandoAtaque) {
+        SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
+    }
+
+    // ── Machete equipado: ataque circular animado ──────────────────
+    // Reemplaza la línea amarilla y el sprite estático anteriores.
+    // renderizarMacheteGirando dibuja:
+    //   1. Estela de 7 copias semitransparentes con rotación orbital
+    //   2. Sprite principal rotado apuntando tangencialmente
+    //   3. Destello brillante en la fase de impacto
+    if (juego->machete.animandoAtaque) {
+        renderizarMacheteGirando(juego);
     }
 
     mostrarPuntuacionPantalla(juego);

@@ -18,21 +18,30 @@ void actualizarLlave(Juego* juego) {
     }
 
     if (!juego->llave.activa && juego->puntosEnNivel >= umbral) {
-        int intentos = 0; bool posOk = false;
-        while (!posOk && intentos < 50) {
-            float lx = 80.0f + (float)(rand() % (ANCHO_VENTANA - 160));
-            float ly = 80.0f + (float)(rand() % (ALTO_VENTANA  - 160));
-            float ddx = lx - juego->jugador.rect.x;
-            float ddy = ly - juego->jugador.rect.y;
-            if (sqrtf(ddx*ddx + ddy*ddy) > 200.0f) {
-                juego->llave.rect       = {lx, ly, (float)LLAVE_TAMANO, (float)LLAVE_TAMANO};
-                juego->llave.activa     = true;
-                juego->llave.pulsoTimer = 0.0f;
-                juego->llave.nivelDestino = juego->nivelActual + 1;
-                posOk = true;
+        const float screenW = (float)VW(juego);
+        const float screenH = (float)VH(juego);
+
+        float lx = screenW  * 0.5f;   // fallback: centro de pantalla
+        float ly = screenH * 0.5f;
+
+        // Intentar encontrar posición alejada del jugador
+        for (int i = 0; i < 50; i++) {
+            float cx = 80.0f + (float)(rand() % (int)(screenW - 160.0f));
+            float cy = 80.0f + (float)(rand() % (int)(screenH - 160.0f));
+            float ddx = cx - juego->jugador.rect.x;
+            float ddy = cy - juego->jugador.rect.y;
+            if (sqrtf(ddx*ddx + ddy*ddy) > 150.0f) {
+                lx = cx; ly = cy;
+                break;
             }
-            intentos++;
         }
+        // Si los 50 intentos fallan, lx/ly quedan en el fallback del centro
+        // pero al menos la llave SIEMPRE aparece
+
+        juego->llave.rect       = {lx, ly, (float)LLAVE_TAMANO, (float)LLAVE_TAMANO};
+        juego->llave.activa     = true;
+        juego->llave.pulsoTimer = 0.0f;
+        juego->llave.nivelDestino = juego->nivelActual + 1;
     }
 
     if (!juego->llave.activa) return;
@@ -46,14 +55,11 @@ void actualizarLlave(Juego* juego) {
         juego->llave.activa = false;
         agregarPuntos(juego, PTS_LLAVE_BONUS,
             juego->llave.rect.x + LLAVE_TAMANO / 2, juego->llave.rect.y);
-        int nivelOrigen  = juego->nivelActual;
-        int nivelDestino = nivelOrigen + 1;
         juego->puntosEnNivel = 0;
-        juego->llave.activa  = false;
-        iniciarTransicionNivel(juego, nivelDestino);
-        // nivelActual se actualiza al TERMINAR la transicion, no aqui
+        iniciarTransicionNivel(juego, juego->llave.nivelDestino);
     }
 }
+
 void renderizarLlave(Juego* juego) {
     if (!juego->llave.activa) return;
     float pulse = 0.5f + 0.5f * sinf(juego->llave.pulsoTimer * 0.07f);

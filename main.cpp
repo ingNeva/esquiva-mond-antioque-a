@@ -154,6 +154,10 @@ int main() {
             case ESTADO_CUENTA_REGRESIVA:
                 renderizarCuentaRegresiva(&juego);
                 break;
+            
+            case ESTADO_INTRO:
+                renderizarIntro(&juego);
+                break;
 
             case ESTADO_VICTORIA:
                 renderizarVictoria(&juego);

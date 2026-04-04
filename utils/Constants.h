@@ -11,7 +11,6 @@
 #define RANGO_ATAQUE              150
 #define OFFSET_MACHETE_X          40
 #define OFFSET_MACHETE_Y          20
-// BARRA_COOLDOWN_* ya NO son macros fijas: se calculan en runtime con VW/VH
 #define DURACION_ANIMACION_ATAQUE 300
 #define RADIO_GIRO_MACHETE        50
 #define MAX_PUNTAJES              5
@@ -20,6 +19,14 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// ============================================
+// Intro cinemática
+// ============================================
+#define INTRO_DURACION_CAMINAR_MS   1400   // tiempo que tarda en llegar al centro
+#define INTRO_DURACION_RECOGER_MS    400   // pausa al recoger el machete
+#define INTRO_DURACION_TEXTO_MS     1200   // tiempo que se muestra el mensaje
+#define INTRO_DURACION_TOTAL_MS  (INTRO_DURACION_CAMINAR_MS + INTRO_DURACION_RECOGER_MS + INTRO_DURACION_TEXTO_MS)
 
 // ============================================
 // Umbrales de nivel
@@ -57,8 +64,7 @@
 #define RUTA_FONDO_NIVEL5  "imagenes/bg_nivel5.png"
 
 // ============================================
-// Boss — posicion en fracciones de pantalla (se resuelve en runtime)
-// BOSS_X / BOSS_Y se calculan con VW/VH * 0.475f en Boss.cpp
+// Boss
 // ============================================
 #define BOSS_TAMANO               96
 #define BOSS_HP_MAX               5
@@ -127,7 +133,8 @@ enum EstadoJuego {
     ESTADO_TRANSICION_NIVEL,
     ESTADO_CUENTA_REGRESIVA,
     ESTADO_VICTORIA,
-    ESTADO_OPCIONES
+    ESTADO_OPCIONES,
+    ESTADO_INTRO          // ← NUEVO: cinemática de entrada al juego
 };
 
 enum TipoEnemigo {

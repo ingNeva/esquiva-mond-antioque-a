@@ -14,3 +14,6 @@ void  renderizarBarraCooldown(Juego* juego);
 void  actualizarPosicionMacheteEquipado(Juego* juego);
 void  actualizarAnimacionAtaque(Juego* juego);
 void  calcularPosicionMacheteGirando(Juego* juego, float* posX, float* posY);
+
+// NUEVO: dibuja el machete animado con estela durante el ataque circular
+void  renderizarMacheteGirando(Juego* juego);
