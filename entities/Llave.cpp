@@ -1,39 +1,40 @@
 #include "Llave.h"
 #include "../core/Game.h"
 #include "../utils/ScoreManager.h"
+#include "../entities/Boss.h"
 #include <cmath>
 #include <cstdlib>
 
 void actualizarLlave(Juego* juego) {
-    int nivel = nivelActual(juego->puntuacion);
-    int umbralSiguiente = 0;
-    switch (nivel) {
-        case 1: umbralSiguiente = UMBRAL_NIVEL_2; break;
-        case 2: umbralSiguiente = UMBRAL_NIVEL_3; break;
-        case 3: umbralSiguiente = UMBRAL_NIVEL_4; break;
-        case 4: umbralSiguiente = UMBRAL_NIVEL_5; break;
+    if (juego->nivelActual >= 5) return;
+
+    int umbral = 0;
+    switch (juego->nivelActual) {
+        case 1: umbral = PUNTOS_LLAVE_NIVEL_1; break;
+        case 2: umbral = PUNTOS_LLAVE_NIVEL_2; break;
+        case 3: umbral = PUNTOS_LLAVE_NIVEL_3; break;
+        case 4: umbral = PUNTOS_LLAVE_NIVEL_4; break;
         default: return;
     }
-    int umbralLlave = umbralSiguiente - 20;
-    if (umbralLlave < 0) umbralLlave = 0;
 
-    if (!juego->llave.activa && juego->puntuacion >= umbralLlave
-        && nivelActual(juego->puntuacion) == nivel) {
+    if (!juego->llave.activa && juego->puntosEnNivel >= umbral) {
         int intentos = 0; bool posOk = false;
         while (!posOk && intentos < 50) {
             float lx = 80.0f + (float)(rand() % (ANCHO_VENTANA - 160));
             float ly = 80.0f + (float)(rand() % (ALTO_VENTANA  - 160));
-            float ddx = lx - juego->jugador.rect.x, ddy = ly - juego->jugador.rect.y;
+            float ddx = lx - juego->jugador.rect.x;
+            float ddy = ly - juego->jugador.rect.y;
             if (sqrtf(ddx*ddx + ddy*ddy) > 200.0f) {
-                juego->llave.rect = {lx, ly, (float)LLAVE_TAMANO, (float)LLAVE_TAMANO};
-                juego->llave.activa = true;
+                juego->llave.rect       = {lx, ly, (float)LLAVE_TAMANO, (float)LLAVE_TAMANO};
+                juego->llave.activa     = true;
                 juego->llave.pulsoTimer = 0.0f;
-                juego->llave.nivelDestino = nivel + 1;
+                juego->llave.nivelDestino = juego->nivelActual + 1;
                 posOk = true;
             }
             intentos++;
         }
     }
+
     if (!juego->llave.activa) return;
     juego->llave.pulsoTimer += 1.0f;
 
@@ -43,20 +44,14 @@ void actualizarLlave(Juego* juego) {
     };
     if (SDL_HasRectIntersectionFloat(&juego->jugador.rect, &hitbox)) {
         juego->llave.activa = false;
-        agregarPuntos(juego, PTS_LLAVE_BONUS, juego->llave.rect.x + LLAVE_TAMANO/2, juego->llave.rect.y);
-        int nivel_actual = nivelActual(juego->puntuacion);
-        int umbral = 0;
-        switch (nivel_actual) {
-            case 1: umbral = UMBRAL_NIVEL_2; break;
-            case 2: umbral = UMBRAL_NIVEL_3; break;
-            case 3: umbral = UMBRAL_NIVEL_4; break;
-            case 4: umbral = UMBRAL_NIVEL_5; break;
-            default: return;
-        }
-        if (juego->puntuacion < umbral) juego->puntuacion = umbral;
+        agregarPuntos(juego, PTS_LLAVE_BONUS,
+            juego->llave.rect.x + LLAVE_TAMANO / 2, juego->llave.rect.y);
+        juego->nivelActual++;
+        juego->puntosEnNivel = 0;
+        juego->llave.activa  = false;
+        iniciarTransicionNivel(juego, juego->nivelActual);
     }
 }
-
 void renderizarLlave(Juego* juego) {
     if (!juego->llave.activa) return;
     float pulse = 0.5f + 0.5f * sinf(juego->llave.pulsoTimer * 0.07f);

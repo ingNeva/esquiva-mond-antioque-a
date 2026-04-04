@@ -1,17 +1,6 @@
 #include "AudioManager.h"
 
 // ============================================
-// nivelActual (helper local)
-// ============================================
-static int _nivelActual(int puntuacion) {
-    if (puntuacion >= UMBRAL_NIVEL_5) return 5;
-    if (puntuacion >= UMBRAL_NIVEL_4) return 4;
-    if (puntuacion >= UMBRAL_NIVEL_3) return 3;
-    if (puntuacion >= UMBRAL_NIVEL_2) return 2;
-    return 1;
-}
-
-// ============================================
 // Inicializacion
 // ============================================
 bool inicializarAudio(Juego* juego) {
@@ -58,14 +47,13 @@ EstadoPista pistaSegunEstadoJuego(Juego* juego) {
             if (juego->gameOverReproducido) return PISTA_MENU;
             return PISTA_GAMEOVER;
         case ESTADO_JUGANDO: {
-            int nivel = _nivelActual(juego->puntuacion);
-            if (nivel <= 3) return PISTA_NIVELES123;
-            if (nivel == 4) {
-                if (!juego->nivel4Reproducido) return PISTA_NIVEL4;
-                return PISTA_NIVEL5;
-            }
-            return PISTA_NIVEL5;
-        }
+            if (juego->nivelActual <= 3) return PISTA_NIVELES123;
+            if (juego->nivelActual == 4) {
+            if (!juego->nivel4Reproducido) return PISTA_NIVEL4;
+        return PISTA_NIVEL5;
+    }
+    return PISTA_NIVEL5;
+}
         case ESTADO_TRANSICION_NIVEL:
             return PISTA_NINGUNA;
         case ESTADO_CUENTA_REGRESIVA:

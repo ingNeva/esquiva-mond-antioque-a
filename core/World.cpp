@@ -24,20 +24,17 @@ void mundoActualizar(Juego* juego) {
     int nivel = nivelActual(juego->puntuacion);
 
     // ── Spawn de enemigo extra al subir de nivel ──
-    if (nivel > juego->ultimoNivelDificultad && juego->enemigosActivos < MAX_ENEMIGOS) {
-        generarEnemigo(&juego->enemigos[juego->enemigosActivos], nivel);
+    // después
+    if (juego->nivelActual > juego->ultimoNivelDificultad
+        && juego->enemigosActivos < MAX_ENEMIGOS) {
+        generarEnemigo(&juego->enemigos[juego->enemigosActivos], juego->nivelActual);
         juego->enemigosActivos++;
-        if (nivel == 4 || nivel == 5) {
-            juego->ultimoNivelDificultad = nivel;
-            iniciarTransicionNivel(juego, nivel);
-            return;
-        }
-        juego->ultimoNivelDificultad = nivel;
+        juego->ultimoNivelDificultad = juego->nivelActual;
     }
 
     // ── Aparicion del machete en nivel 4 ─────────
-    if (juego->puntuacion >= UMBRAL_NIVEL_4
-        && !juego->macheteAparecido && !juego->machete.recogido) {
+    if (juego->nivelActual >= 4
+    && !juego->macheteAparecido && !juego->machete.recogido) {
         aparecerMachete(juego);
         juego->macheteAparecido = true;
     }
@@ -47,9 +44,11 @@ void mundoActualizar(Juego* juego) {
         Enemigo* en = &juego->enemigos[i];
         moverEnemigo(en, juego->jugador, nivel, juego);
 
-        // Sale de pantalla -> esquivado
-        if (en->rect.x < -80 || en->rect.x > ANCHO_VENTANA + 20 ||
-            en->rect.y < -80 || en->rect.y > ALTO_VENTANA  + 20) {
+        // Sale de pantalla -> esquivado (usando tamaño real de ventana)
+        const float screenW = (float)VW(juego);
+        const float screenH = (float)VH(juego);
+        if (en->rect.x < -80 || en->rect.x > screenW + 20 ||
+            en->rect.y < -80 || en->rect.y > screenH + 20) {
             mundoOnEnemigoEsquivado(juego, i);
             continue;
         }
@@ -83,7 +82,7 @@ void mundoActualizar(Juego* juego) {
     actualizarLlave(juego);
 
     // ── Boss (nivel 5) ────────────────────────────
-    if (nivel >= 5) actualizarBoss(juego);
+    if (juego->nivelActual >= 5) actualizarBoss(juego);
 
     // ── Floating texts ────────────────────────────
     actualizarFloatingTexts(juego);
@@ -118,10 +117,16 @@ void mundoOnPilarDestruido(Juego* juego, int indicePilar) {
     agregarPuntos(juego, 25, p->rect.x + 24, p->rect.y);
     if (juego->bossHP <= 2) juego->estadoBoss = BOSS_ENFURECIDO;
     if (juego->bossHP <= 0) {
-        juego->estadoBoss   = BOSS_MUERTO;
-        juego->trofeoActivo = true;
-        juego->trofeoRect   = {(float)BOSS_X, (float)BOSS_Y, 64.0f, 64.0f};
-        agregarPuntos(juego, PTS_ESQUIVAR_BOSS, (float)BOSS_X, (float)BOSS_Y);
+        // Posicion del boss centrada en pantalla (misma logica que Boss.cpp)
+        const float bossX = (float)(VW(juego) / 2 - BOSS_TAMANO / 2);
+        const float bossY = (float)(VH(juego) / 2 - BOSS_TAMANO / 2);
+        juego->estadoBoss        = BOSS_MUERTO;
+        juego->trofeoActivo      = true;
+        juego->trofeoRect.x      = bossX;
+        juego->trofeoRect.y      = bossY;
+        juego->trofeoRect.w      = 64.0f;
+        juego->trofeoRect.h      = 64.0f;
+        agregarPuntos(juego, PTS_ESQUIVAR_BOSS, bossX, bossY);
     }
 }
 

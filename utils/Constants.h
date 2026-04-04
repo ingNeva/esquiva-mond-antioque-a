@@ -11,10 +11,7 @@
 #define RANGO_ATAQUE              150
 #define OFFSET_MACHETE_X          40
 #define OFFSET_MACHETE_Y          20
-#define BARRA_COOLDOWN_ANCHO      200
-#define BARRA_COOLDOWN_ALTO       20
-#define BARRA_COOLDOWN_X          10
-#define BARRA_COOLDOWN_Y          (ALTO_VENTANA - 80)
+// BARRA_COOLDOWN_* ya NO son macros fijas: se calculan en runtime con VW/VH
 #define DURACION_ANIMACION_ATAQUE 300
 #define RADIO_GIRO_MACHETE        50
 #define MAX_PUNTAJES              5
@@ -32,7 +29,10 @@
 #define UMBRAL_NIVEL_3   150
 #define UMBRAL_NIVEL_4   350
 #define UMBRAL_NIVEL_5   700
-
+#define PUNTOS_LLAVE_NIVEL_1   40
+#define PUNTOS_LLAVE_NIVEL_2   60
+#define PUNTOS_LLAVE_NIVEL_3   80
+#define PUNTOS_LLAVE_NIVEL_4   100
 #define DURACION_TRANSICION       2500
 
 // ============================================
@@ -57,10 +57,9 @@
 #define RUTA_FONDO_NIVEL5  "imagenes/bg_nivel5.png"
 
 // ============================================
-// Boss
+// Boss — posicion en fracciones de pantalla (se resuelve en runtime)
+// BOSS_X / BOSS_Y se calculan con VW/VH * 0.475f en Boss.cpp
 // ============================================
-#define BOSS_X                    912
-#define BOSS_Y                    492
 #define BOSS_TAMANO               96
 #define BOSS_HP_MAX               5
 #define BOSS_CADENCIA_NORMAL      2500

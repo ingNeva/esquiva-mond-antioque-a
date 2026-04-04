@@ -25,6 +25,8 @@ void iniciarCuentaRegresiva(Juego* juego) {
     for (int f = 0; f < MAX_FLOATING_TEXT; f++) juego->floatingTexts[f].activo = false;
     juego->llave.activa     = false;
     juego->llave.pulsoTimer = 0.0f;
+    juego->nivelActual   = 1;
+    juego->puntosEnNivel = 0;
     juego->pistaSonando     = PISTA_NINGUNA;
     juego->inicioCuentaRegresiva = SDL_GetTicks();
     juego->estado = ESTADO_CUENTA_REGRESIVA;

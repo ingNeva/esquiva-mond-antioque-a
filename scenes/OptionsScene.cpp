@@ -8,6 +8,8 @@ void aplicarResolucion(Juego* juego) {
     int h = RESOLUCIONES[juego->resolucionSeleccionada].alto;
     SDL_SetWindowSize(juego->ventana, w, h);
     SDL_SetWindowPosition(juego->ventana, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    // Recargar fuentes al nuevo tamaño
+    recargarFuentes(juego);
 }
 
 void togglePantallaCompleta(Juego* juego) {
@@ -18,6 +20,8 @@ void togglePantallaCompleta(Juego* juego) {
         SDL_SetWindowFullscreen(juego->ventana, false);
         aplicarResolucion(juego);
     }
+    // Recargar fuentes al nuevo tamaño de pantalla
+    recargarFuentes(juego);
 }
 
 void renderizarOpciones(Juego* juego) {
@@ -29,7 +33,7 @@ void renderizarOpciones(Juego* juego) {
     const int valorX = cx + (int)(W * 0.02f);
     // Filas relativas: inicio al 15% de H, paso 8%
     const int inicioY = (int)(H * 0.15f);
-    const int paso    = (int)(H * 0.08f);
+    const int paso    = (int)(H * 0.09f);
 
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
@@ -37,11 +41,11 @@ void renderizarOpciones(Juego* juego) {
     SDL_Color verde    = { 80, 255, 120, 255};
     SDL_Color apagado  = {100, 100, 100, 255};
 
-    renderizarTexto(juego, "OPCIONES", cx - (int)(W*0.06f), (int)(H*0.06f), amarillo);
+    renderizarTextoCentrado(juego, "OPCIONES", (int)(H * 0.05f), amarillo);
 
     SDL_Color seccion = {180, 160, 50, 255};
-    renderizarTextoPequeno(juego, "AUDIO",    labelX, inicioY - (int)(H*0.03f), seccion);
-    renderizarTextoPequeno(juego, "PANTALLA", labelX, inicioY + 2*paso - (int)(H*0.03f), seccion);
+    renderizarTextoPequeno(juego, "AUDIO",    labelX, inicioY - (int)(H * 0.04f), seccion);
+    renderizarTextoPequeno(juego, "PANTALLA", labelX, inicioY + 2 * paso - (int)(H * 0.04f), seccion);
 
     const char* nombres[] = {"Musica", "Volumen", "Resolucion", "Pantalla completa"};
     const int totalOpciones = 4;
@@ -72,38 +76,44 @@ void renderizarOpciones(Juego* juego) {
         }
         renderizarTexto(juego, valor, valorX, inicioY + i * paso, colorValor);
 
-        // Barra grafica de volumen
+        // Barra grafica de volumen (solo fila 1)
         if (i == 1) {
-            const int barX = valorX + (int)(W * 0.06f);
-            const int barY = inicioY + i * paso + (int)(H * 0.01f);
-            const int barW = (int)(W * 0.14f), barH = (int)(H * 0.014f);
+            const int barX = valorX + (int)(W * 0.07f);
+            const int barY = inicioY + i * paso + (int)(H * 0.012f);
+            const int barW = (int)(W * 0.15f);
+            const int barH = (int)(H * 0.016f);
             float frac = juego->volumenMusica / 128.0f;
             SDL_SetRenderDrawColor(juego->renderer, 40, 40, 40, 255);
-            SDL_FRect bg = {(float)barX, (float)barY, (float)barW, (float)barH};
-            SDL_RenderFillRect(juego->renderer, &bg);
-            Uint8 br = (Uint8)(255 * (1.0f - frac));
+            SDL_FRect bgBar = {(float)barX, (float)barY, (float)barW, (float)barH};
+            SDL_RenderFillRect(juego->renderer, &bgBar);
+            Uint8 br  = (Uint8)(255 * (1.0f - frac));
             Uint8 bg2 = (Uint8)(200 * frac);
             SDL_SetRenderDrawColor(juego->renderer, br, bg2, 0, 255);
             SDL_FRect fill = {(float)barX, (float)barY, barW * frac, (float)barH};
             SDL_RenderFillRect(juego->renderer, &fill);
             SDL_SetRenderDrawColor(juego->renderer, 100, 100, 100, 255);
-            SDL_RenderRect(juego->renderer, &bg);
+            SDL_RenderRect(juego->renderer, &bgBar);
         }
     }
 
-    int sepY = inicioY + totalOpciones * paso + (int)(H * 0.01f);
+    // Separador + instrucciones
+    int sepY = inicioY + totalOpciones * paso + (int)(H * 0.02f);
     SDL_SetRenderDrawColor(juego->renderer, 60, 60, 60, 255);
     SDL_RenderLine(juego->renderer,
-        (float)(cx - (int)(W*0.22f)), (float)sepY,
-        (float)(cx + (int)(W*0.22f)), (float)sepY);
-    renderizarTextoPequeno(juego,
+        (float)(cx - (int)(W * 0.22f)), (float)sepY,
+        (float)(cx + (int)(W * 0.22f)), (float)sepY);
+
+    renderizarTextoPequenoC(juego,
         "Arriba/Abajo: navegar     Izq/Der o +/-: cambiar valor     F: fullscreen",
-        cx - (int)(W*0.21f), sepY + (int)(H*0.02f), gris);
-    renderizarTextoPequeno(juego, "ESC / Circulo: volver al menu",
-        cx - (int)(W*0.08f), sepY + (int)(H*0.05f), gris);
+        sepY + (int)(H * 0.025f), gris);
+    renderizarTextoPequenoC(juego, "ESC / Circulo: volver al menu",
+        sepY + (int)(H * 0.06f), gris);
+
     if (juego->pantallaCompleta)
-        renderizarTextoPequeno(juego, "En pantalla completa la resolucion la fija el SO",
-            cx - (int)(W*0.15f), sepY + (int)(H*0.08f), apagado);
+        renderizarTextoPequenoC(juego,
+            "En pantalla completa la resolucion la fija el SO",
+            sepY + (int)(H * 0.095f), apagado);
+
     SDL_RenderPresent(juego->renderer);
 
     // ── Eventos ──────────────────────────────────
@@ -198,5 +208,6 @@ void renderizarOpciones(Juego* juego) {
                 default: break;
             }
         }
+        if (e.type == SDL_EVENT_WINDOW_RESIZED) recargarFuentes(juego);
     }
 }

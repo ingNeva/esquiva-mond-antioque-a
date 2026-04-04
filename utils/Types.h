@@ -151,4 +151,6 @@ struct Juego {
     int  opcionOpcionesSeleccionada;
     int  resolucionSeleccionada;
     bool pantallaCompleta;
+    int  nivelActual;
+    int  puntosEnNivel;
 };

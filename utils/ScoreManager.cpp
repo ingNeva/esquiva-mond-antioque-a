@@ -82,6 +82,7 @@ void agregarPuntos(Juego* juego, int base, float x, float y) {
 
     int puntosReales = (int)(base * juego->multiplicador);
     juego->puntuacion += puntosReales;
+    juego->puntosEnNivel += puntosReales;
 
     for (int i = 0; i < MAX_FLOATING_TEXT; i++) {
         if (!juego->floatingTexts[i].activo) {

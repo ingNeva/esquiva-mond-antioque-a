@@ -148,27 +148,25 @@ void renderizarHUDCombo(Juego* juego) {
     const int W = VW(juego), H = VH(juego);
 
     // Aviso "Llave proxima"
-    if (!juego->llave.activa) {
-        int nivel = nivelActual(juego->puntuacion);
-        if (nivel < 5) {
-            int umbralSig = 0;
-            switch (nivel) {
-                case 1: umbralSig = UMBRAL_NIVEL_2; break;
-                case 2: umbralSig = UMBRAL_NIVEL_3; break;
-                case 3: umbralSig = UMBRAL_NIVEL_4; break;
-                case 4: umbralSig = UMBRAL_NIVEL_5; break;
-            }
-            int umbralLlave = umbralSig - 20;
-            if (juego->puntuacion >= umbralLlave - 30 && juego->puntuacion < umbralSig) {
-                int falta = umbralSig - juego->puntuacion;
-                char txtLlave[48];
-                SDL_snprintf(txtLlave, sizeof(txtLlave), "Llave en %d pts!", falta);
-                SDL_Color dorado = {255, 200, 0, 255};
-                renderizarTextoPequeno(juego, txtLlave,
-                    W - (int)(W * 0.115f), (int)(H * 0.083f), dorado);
-            }
+    // después
+    if (!juego->llave.activa && juego->nivelActual < 5) {
+        int umbral = 0;
+        switch (juego->nivelActual) {
+            case 1: umbral = PUNTOS_LLAVE_NIVEL_1; break;
+            case 2: umbral = PUNTOS_LLAVE_NIVEL_2; break;
+            case 3: umbral = PUNTOS_LLAVE_NIVEL_3; break;
+            case 4: umbral = PUNTOS_LLAVE_NIVEL_4; break;
+        }
+        int falta = umbral - juego->puntosEnNivel;
+        if (falta > 0 && falta <= 30) {
+            char txtLlave[48];
+            SDL_snprintf(txtLlave, sizeof(txtLlave), "Llave en %d pts!", falta);
+            SDL_Color dorado = {255, 200, 0, 255};
+            renderizarTextoPequeno(juego, txtLlave,
+                W - (int)(W * 0.115f), (int)(H * 0.083f), dorado);
         }
     }
+
 
     if (juego->combo < 3) return;
 

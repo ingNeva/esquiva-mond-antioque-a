@@ -15,14 +15,25 @@ void mostrarPuntuacionPantalla(Juego* juego) {
     const int W = VW(juego), H = VH(juego);
     // Score: esquina superior izquierda con margen relativo
     SDL_Color blanco = {255, 255, 255, 255};
-    std::string txt = "Score: " + std::to_string(juego->puntuacion);
-    renderizarTexto(juego, txt.c_str(), (int)(W * 0.005f), (int)(H * 0.009f), blanco);
+    int umbral = 0;
+    switch (juego->nivelActual) {
+        case 1: umbral = PUNTOS_LLAVE_NIVEL_1; break;
+        case 2: umbral = PUNTOS_LLAVE_NIVEL_2; break;
+        case 3: umbral = PUNTOS_LLAVE_NIVEL_3; break;
+        case 4: umbral = PUNTOS_LLAVE_NIVEL_4; break;
+    }
+    if (umbral > 0) {
+        char txtProgreso[32];
+        SDL_snprintf(txtProgreso, sizeof(txtProgreso), "Llave: %d / %d",
+            SDL_min(juego->puntosEnNivel, umbral), umbral);
+        renderizarTextoPequeno(juego, txtProgreso,
+            (int)(W * 0.005f), (int)(H * 0.085f), blanco);
+    }
 
-    int nivel = nivelActual(juego->puntuacion);
     char txtNivel[32];
-    SDL_snprintf(txtNivel, sizeof(txtNivel), "Nivel: %d", nivel);
+    SDL_snprintf(txtNivel, sizeof(txtNivel), "Nivel: %d", juego->nivelActual);
     SDL_Color colorNivel;
-    switch (nivel) {
+    switch (juego->nivelActual) {
         case 1: case 2: case 3: colorNivel = {100, 220, 100, 255}; break;
         case 4: colorNivel = {255, 165,   0, 255}; break;
         case 5: colorNivel = {220,  50,  50, 255}; break;

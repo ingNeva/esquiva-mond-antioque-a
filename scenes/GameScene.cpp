@@ -9,7 +9,7 @@
 
 void dibujarJuego(Juego* juego) {
     SDL_RenderClear(juego->renderer);
-    int nivelIdx = SDL_clamp(nivelActual(juego->puntuacion) - 1, 0, 4);
+    int nivelIdx = SDL_clamp(juego->nivelActual - 1, 0, 4);
     SDL_Texture* texFondoActual = juego->texFondos[nivelIdx];
 
     if (juego->transicion.activa) {
@@ -41,7 +41,7 @@ void dibujarJuego(Juego* juego) {
 
     // Boss sprite
     if (juego->estadoBoss == BOSS_ACTIVO || juego->estadoBoss == BOSS_ENFURECIDO) {
-        SDL_FRect bossRect = {(float)BOSS_X, (float)BOSS_Y, (float)BOSS_TAMANO, (float)BOSS_TAMANO};
+        SDL_FRect bossRect = {VW(juego) * 0.475f, VH(juego) * 0.475f, (float)BOSS_TAMANO, (float)BOSS_TAMANO};
         if (juego->estadoBoss == BOSS_ENFURECIDO) {
             float p = 0.5f + 0.5f * sinf((float)SDL_GetTicks() * 0.01f);
             SDL_SetTextureColorMod(juego->texBoss, 255, (Uint8)(50 * p), (Uint8)(50 * p));
@@ -92,7 +92,7 @@ void dibujarJuego(Juego* juego) {
     }
 
     // Machete
-    if (juego->puntuacion >= UMBRAL_NIVEL_4 || juego->macheteEquipado)
+    if (juego->nivelActual >= 4 || juego->macheteEquipado)
         if (!juego->machete.recogido || juego->macheteEquipado)
             SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
 

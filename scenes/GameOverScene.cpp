@@ -18,24 +18,32 @@ void iniciarIngresoNombre(Juego* juego) {
 void renderizarIngresoNombre(Juego* juego) {
     SDL_RenderClear(juego->renderer);
     const int W = VW(juego), H = VH(juego);
-    const int cx = W / 2;// cy = H / 2;
+    const int cx = W / 2;
 
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
     SDL_Color verde    = { 80, 255, 120, 255};
     SDL_Color gris     = {130, 130, 130, 255};
 
-    renderizarTexto(juego, "NUEVO RECORD!", cx - (int)(W * 0.09f), (int)(H * 0.10f), amarillo);
+    // Titulo y puntuacion — centrados horizontalmente
+    renderizarTextoCentrado(juego, "NUEVO RECORD!", (int)(H * 0.10f), amarillo);
+
     char msgPuntaje[64];
     SDL_snprintf(msgPuntaje, sizeof(msgPuntaje), "Puntuacion: %d", juego->puntuacion);
-    renderizarTexto(juego, msgPuntaje, cx - (int)(W * 0.07f), (int)(H * 0.18f), blanco);
-    renderizarTextoPequeno(juego, "Ingresa tu nombre (max 31 caracteres) y presiona Enter",
-        cx - (int)(W * 0.16f), (int)(H * 0.25f), gris);
+    renderizarTextoCentrado(juego, msgPuntaje, (int)(H * 0.18f), blanco);
+
+    renderizarTextoPequenoC(juego,
+        "Ingresa tu nombre (max 31 caracteres) y presiona Enter",
+        (int)(H * 0.27f), gris);
 
     // Caja de texto centrada
-    const int cajaW = (int)(W * 0.23f), cajaH = (int)(H * 0.05f);
+    const int cajaW = (int)(W * 0.30f);
+    const int cajaH = (int)(H * 0.055f);
+    const int cajaX = cx - cajaW / 2;
+    const int cajaY = (int)(H * 0.33f);
+
     SDL_SetRenderDrawColor(juego->renderer, 50, 50, 50, 255);
-    SDL_FRect caja = {(float)(cx - cajaW / 2), (float)(H * 0.30f), (float)cajaW, (float)cajaH};
+    SDL_FRect caja = {(float)cajaX, (float)cajaY, (float)cajaW, (float)cajaH};
     SDL_RenderFillRect(juego->renderer, &caja);
     SDL_SetRenderDrawColor(juego->renderer, 255, 220, 0, 255);
     SDL_RenderRect(juego->renderer, &caja);
@@ -44,14 +52,19 @@ void renderizarIngresoNombre(Juego* juego) {
     bool cursorVisible = (SDL_GetTicks() / 500) % 2 == 0;
     SDL_snprintf(textoMostrado, sizeof(textoMostrado), "%s%s",
         juego->nombreIngresado, cursorVisible ? "_" : " ");
-    renderizarTexto(juego, textoMostrado, cx - cajaW / 2 + 8, (int)(H * 0.305f), verde);
+    // Texto dentro de la caja, con pequeño margen izquierdo
+    renderizarTexto(juego, textoMostrado,
+        cajaX + (int)(W * 0.008f),
+        cajaY + (cajaH - tamanoFuente(juego)) / 2,
+        verde);
 
     // Top5 en cuarto derecho
     renderizarTop5(juego, (int)(W * 0.72f), (int)(H * 0.10f), -1);
 
-    renderizarTextoPequeno(juego,
+    renderizarTextoPequenoC(juego,
         "Enter: confirmar    ESC: cancelar (puntaje no guardado)",
-        cx - (int)(W * 0.16f), H - (int)(H * 0.05f), gris);
+        H - (int)(H * 0.05f), gris);
+
     SDL_RenderPresent(juego->renderer);
 
     SDL_Event e;
@@ -83,6 +96,7 @@ void renderizarIngresoNombre(Juego* juego) {
                 juego->estado = ESTADO_GAME_OVER;
             }
         }
+        if (e.type == SDL_EVENT_WINDOW_RESIZED) recargarFuentes(juego);
     }
 }
 
@@ -99,27 +113,32 @@ void renderizarGameOver(Juego* juego) {
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color verde    = { 80, 255, 120, 255};
 
-    renderizarTexto(juego, "GAME OVER",              margenI, (int)(H * 0.14f), rojo);
+    renderizarTexto(juego, "GAME OVER", margenI, (int)(H * 0.14f), rojo);
+
     char scoreTexto[64];
     SDL_snprintf(scoreTexto, sizeof(scoreTexto), "Puntuacion: %d", juego->puntuacion);
-    renderizarTexto(juego, scoreTexto,               margenI, (int)(H * 0.23f), blanco);
+    renderizarTexto(juego, scoreTexto, margenI, (int)(H * 0.23f), blanco);
+
     char nivelTexto[64];
     SDL_snprintf(nivelTexto, sizeof(nivelTexto), "Nivel alcanzado: %d", nivelActual(juego->puntuacion));
-    renderizarTexto(juego, nivelTexto,               margenI, (int)(H * 0.30f), amarillo);
+    renderizarTexto(juego, nivelTexto, margenI, (int)(H * 0.31f), amarillo);
+
     if (juego->posicionNuevoPuntaje >= 0) {
         char msgPos[64];
         SDL_snprintf(msgPos, sizeof(msgPos), "TOP 5! Puesto #%d", juego->posicionNuevoPuntaje + 1);
-        renderizarTexto(juego, msgPos,               margenI, (int)(H * 0.36f), verde);
+        renderizarTexto(juego, msgPos, margenI, (int)(H * 0.39f), verde);
     }
-    renderizarTexto(juego, "Enter / Cruz    Menu principal", margenI, (int)(H * 0.45f), amarillo);
-    renderizarTexto(juego, "ESC / START     Salir",          margenI, (int)(H * 0.52f), amarillo);
 
-    // Divisor + Top5
+    renderizarTexto(juego, "Enter / Cruz    Menu principal", margenI, (int)(H * 0.50f), amarillo);
+    renderizarTexto(juego, "ESC / START     Salir",          margenI, (int)(H * 0.58f), amarillo);
+
+    // Divisor central + Top5
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
     SDL_RenderLine(juego->renderer,
         (float)(W / 2), (float)(H * 0.07f),
         (float)(W / 2), (float)(H * 0.93f));
     renderizarTop5(juego, (int)(W * 0.53f), (int)(H * 0.09f), juego->posicionNuevoPuntaje);
+
     SDL_RenderPresent(juego->renderer);
 
     SDL_Event e;
@@ -137,6 +156,7 @@ void renderizarGameOver(Juego* juego) {
             }
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START) juego->ejecutando = false;
         }
+        if (e.type == SDL_EVENT_WINDOW_RESIZED) recargarFuentes(juego);
     }
 }
 
@@ -146,7 +166,6 @@ void renderizarGameOver(Juego* juego) {
 void renderizarPausa(Juego* juego) {
     dibujarJuego(juego);
     const int W = VW(juego), H = VH(juego);
-    const int cx = W / 2;
 
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(juego->renderer, 0, 0, 0, 150);
@@ -157,15 +176,14 @@ void renderizarPausa(Juego* juego) {
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
     SDL_Color rojo     = {220,  50,  50, 255};
-    //SDL_Color gris     = {130, 130, 130, 255};
 
-    const int col = cx - (int)(W * 0.11f);
-    renderizarTexto(juego, "PAUSADO",                            cx - (int)(W*0.04f), (int)(H*0.18f), amarillo);
-    renderizarTexto(juego, "ESC / START         Continuar",      col, (int)(H*0.28f), blanco);
-    renderizarTexto(juego, "Enter / Cruz(PS3)   Volver al menu", col, (int)(H*0.35f), blanco);
-    renderizarTexto(juego, "Q                   Salir del juego",col, (int)(H*0.42f), rojo);
-    renderizarTexto(juego, "M                   Musica ON/OFF",  col, (int)(H*0.49f), blanco);
-    renderizarTexto(juego, "+ / -               Volumen",        col, (int)(H*0.56f), blanco);
+    // Todo centrado horizontalmente
+    renderizarTextoCentrado(juego, "PAUSADO",                             (int)(H * 0.18f), amarillo);
+    renderizarTextoCentrado(juego, "ESC / START          Continuar",      (int)(H * 0.29f), blanco);
+    renderizarTextoCentrado(juego, "Enter / Cruz(PS3)    Volver al menu", (int)(H * 0.37f), blanco);
+    renderizarTextoCentrado(juego, "Q                    Salir del juego",(int)(H * 0.45f), rojo);
+    renderizarTextoCentrado(juego, "M                    Musica ON/OFF",  (int)(H * 0.53f), blanco);
+    renderizarTextoCentrado(juego, "+ / -                Volumen",        (int)(H * 0.61f), blanco);
 
     SDL_Color colorAudio = juego->musicaActiva
         ? (SDL_Color){80, 255, 120, 255}
@@ -174,7 +192,8 @@ void renderizarPausa(Juego* juego) {
     SDL_snprintf(textoAudio, sizeof(textoAudio),
         juego->musicaActiva ? "Audio: ON  Vol:%d%%" : "Audio: SILENCIADO",
         juego->volumenMusica * 100 / 128);
-    renderizarTextoPequeno(juego, textoAudio, cx - (int)(W*0.05f), (int)(H*0.63f), colorAudio);
+    renderizarTextoPequenoC(juego, textoAudio, (int)(H * 0.69f), colorAudio);
+
     SDL_RenderPresent(juego->renderer);
 
     SDL_Event e;
@@ -196,6 +215,7 @@ void renderizarPausa(Juego* juego) {
                 reiniciarJuego(juego); juego->estado = ESTADO_MENU;
             }
         }
+        if (e.type == SDL_EVENT_WINDOW_RESIZED) recargarFuentes(juego);
     }
 }
 
@@ -219,27 +239,32 @@ void renderizarVictoria(Juego* juego) {
 
     if (juego->texTrofeo) {
         float escTrofeo = 1.0f + 0.12f * sinf((float)SDL_GetTicks() * 0.005f);
-        int tw = (int)(128 * escTrofeo), th = (int)(128 * escTrofeo);
-        SDL_FRect tr = {(float)(cx - tw/2), (float)(H * 0.09f), (float)tw, (float)th};
+        int tw = (int)(H * 0.12f * escTrofeo);   // tamaño relativo al alto
+        int th = tw;
+        SDL_FRect tr = {(float)(cx - tw/2), (float)(H * 0.07f), (float)tw, (float)th};
         SDL_RenderTexture(juego->renderer, juego->texTrofeo, NULL, &tr);
     }
-    renderizarTexto(juego, "!BIEN HECHO!", cx - (int)(W*0.09f), (int)(H*0.25f), dorado);
+
+    renderizarTextoCentrado(juego, "!BIEN HECHO!", (int)(H * 0.25f), dorado);
+
     char scoreTexto[64];
     SDL_snprintf(scoreTexto, sizeof(scoreTexto), "Puntuacion final: %d", juego->puntuacion);
-    renderizarTexto(juego, scoreTexto, cx - (int)(W*0.10f), (int)(H*0.33f), blanco);
+    renderizarTextoCentrado(juego, scoreTexto, (int)(H * 0.34f), blanco);
+
     char comboTexto[64];
     SDL_snprintf(comboTexto, sizeof(comboTexto), "Mejor racha: %d", juego->mejorCombo);
-    renderizarTextoPequeno(juego, comboTexto, cx - (int)(W*0.05f), (int)(H*0.41f), amarillo);
+    renderizarTextoPequenoC(juego, comboTexto, (int)(H * 0.42f), amarillo);
 
     // Divisor + Top5 en lado derecho
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 0, 255);
     SDL_RenderLine(juego->renderer,
-        (float)(cx + (int)(W*0.10f)), (float)(H*0.07f),
-        (float)(cx + (int)(W*0.10f)), (float)(H*0.93f));
-    renderizarTop5(juego, cx + (int)(W*0.12f), (int)(H*0.09f), -1);
+        (float)(cx + (int)(W * 0.10f)), (float)(H * 0.07f),
+        (float)(cx + (int)(W * 0.10f)), (float)(H * 0.93f));
+    renderizarTop5(juego, cx + (int)(W * 0.12f), (int)(H * 0.09f), -1);
 
-    renderizarTextoPequeno(juego, "Enter / Cruz  ->  Guardar y volver al menu",
-        cx - (int)(W*0.12f), H - (int)(H*0.06f), gris);
+    renderizarTextoPequenoC(juego, "Enter / Cruz  ->  Guardar y volver al menu",
+        H - (int)(H * 0.06f), gris);
+
     SDL_RenderPresent(juego->renderer);
 
     SDL_Event e;
@@ -261,5 +286,6 @@ void renderizarVictoria(Juego* juego) {
                 reiniciarJuego(juego); juego->estado = ESTADO_MENU;
             }
         }
+        if (e.type == SDL_EVENT_WINDOW_RESIZED) recargarFuentes(juego);
     }
 }

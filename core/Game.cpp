@@ -49,7 +49,6 @@ void cargarConfig(Juego* juego) {
     fread(&cfg, sizeof(cfg), 1, f);
     fclose(f);
     if (cfg.magic != CONFIG_MAGIC) {
-        // Archivo corrupto: valores por defecto
         juego->pantallaCompleta       = true;
         juego->resolucionSeleccionada = 12;
         juego->musicaActiva           = true;
@@ -162,18 +161,36 @@ bool cargarTexturas(Juego* juego) {
 }
 
 // ============================================
-// Carga de fuente
+// Carga de fuente — tamaño escalado a la resolucion actual
 // ============================================
 bool cargarFuente(Juego* juego) {
-    juego->fuente = TTF_OpenFont("Arial Black.ttf", 36);
+    int sz  = tamanoFuente(juego);
+    int szP = tamanoFuentePequena(juego);
+
+    juego->fuente = TTF_OpenFont("Arial Black.ttf", sz);
     if (!juego->fuente) { SDL_Log("Error fuente: %s", SDL_GetError()); return false; }
-    juego->fuentePequena = TTF_OpenFont("Arial Black.ttf", 22);
+
+    juego->fuentePequena = TTF_OpenFont("Arial Black.ttf", szP);
     if (!juego->fuentePequena) juego->fuentePequena = juego->fuente;
+
     return true;
 }
 
 // ============================================
-// Helpers de texto
+// Recargar fuentes tras cambio de resolucion/fullscreen
+// ============================================
+void recargarFuentes(Juego* juego) {
+    if (juego->fuentePequena && juego->fuentePequena != juego->fuente)
+        TTF_CloseFont(juego->fuentePequena);
+    if (juego->fuente)
+        TTF_CloseFont(juego->fuente);
+    juego->fuente        = nullptr;
+    juego->fuentePequena = nullptr;
+    cargarFuente(juego);
+}
+
+// ============================================
+// Helpers de texto — posicion absoluta
 // ============================================
 void renderizarTexto(Juego* juego, const char* texto, int x, int y, SDL_Color color) {
     SDL_Surface* sup = TTF_RenderText_Solid(juego->fuente, texto, 0, color);
@@ -199,6 +216,38 @@ void renderizarTextoPequeno(Juego* juego, const char* texto, int x, int y, SDL_C
     SDL_DestroySurface(sup);
 }
 
+// ============================================
+// Helpers de texto — centrado horizontal automatico
+// ============================================
+void renderizarTextoCentrado(Juego* juego, const char* texto, int y, SDL_Color color) {
+    SDL_Surface* sup = TTF_RenderText_Solid(juego->fuente, texto, 0, color);
+    if (!sup) return;
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(juego->renderer, sup);
+    if (tex) {
+        int x = (VW(juego) - sup->w) / 2;
+        SDL_FRect dst = {(float)x, (float)y, (float)sup->w, (float)sup->h};
+        SDL_RenderTexture(juego->renderer, tex, NULL, &dst);
+        SDL_DestroyTexture(tex);
+    }
+    SDL_DestroySurface(sup);
+}
+
+void renderizarTextoPequenoC(Juego* juego, const char* texto, int y, SDL_Color color) {
+    SDL_Surface* sup = TTF_RenderText_Solid(juego->fuentePequena, texto, 0, color);
+    if (!sup) return;
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(juego->renderer, sup);
+    if (tex) {
+        int x = (VW(juego) - sup->w) / 2;
+        SDL_FRect dst = {(float)x, (float)y, (float)sup->w, (float)sup->h};
+        SDL_RenderTexture(juego->renderer, tex, NULL, &dst);
+        SDL_DestroyTexture(tex);
+    }
+    SDL_DestroySurface(sup);
+}
+
+// ============================================
+// Top 5
+// ============================================
 void renderizarTop5(Juego* juego, int x, int y, int posicionResaltada) {
     SDL_Color amarillo = {255, 220,   0, 255};
     SDL_Color blanco   = {255, 255, 255, 255};
@@ -206,8 +255,8 @@ void renderizarTop5(Juego* juego, int x, int y, int posicionResaltada) {
     SDL_Color dorado   = {255, 180,   0, 255};
     SDL_Color verde    = { 80, 255, 120, 255};
     const char* medallas[] = {"#1", "#2", "#3", "#4", "#5"};
-    // Espaciado relativo a la altura real de la ventana
-    const int espaciado = (int)(VH(juego) * 0.035f);
+    // Espaciado proporcional al alto de ventana
+    const int espaciado = SDL_max(18, (int)(VH(juego) * 0.055f));
     renderizarTextoPequeno(juego, "--- TOP 5 ---", x, y, amarillo);
     if (juego->tablaPuntajes.cantidad == 0) {
         renderizarTextoPequeno(juego, "Sin records aun", x, y + espaciado, gris);
@@ -280,7 +329,7 @@ void reiniciarJuego(Juego* juego) {
     for (int p = 0; p < MAX_PILARES; p++) juego->pilares[p].activo = false;
     juego->combo = 0; juego->mejorCombo = 0; juego->multiplicador = 1.0f;
     for (int f = 0; f < MAX_FLOATING_TEXT; f++) juego->floatingTexts[f].activo = false;
-    juego->llave.activa    = false;
+    juego->llave.activa     = false;
     juego->llave.pulsoTimer = 0.0f;
     juego->gameOverReproducido = false;
     juego->transicion = {};

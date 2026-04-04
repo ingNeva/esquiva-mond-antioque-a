@@ -18,7 +18,10 @@ void spawnPilares(Juego* juego) {
         while (!posOk && intentos < 100) {
             px = (float)(marginX + rand() % (ANCHO_VENTANA - marginX * 2));
             py = (float)(marginY + rand() % (ALTO_VENTANA  - marginY * 2));
-            float ddx = px - BOSS_X, ddy = py - BOSS_Y;
+            float bossX = VW(juego) * 0.475f;
+            float bossY = VH(juego) * 0.475f;
+            float ddx = px - bossX;
+            float ddy = py - bossY;
             posOk = sqrtf(ddx*ddx + ddy*ddy) > 160.0f;
             intentos++;
         }
@@ -34,8 +37,8 @@ void spawnPilares(Juego* juego) {
 // ============================================
 void dispararProyectil(Juego* juego) {
     if (juego->enemigosActivos >= MAX_ENEMIGOS) return;
-    float cx = (float)BOSS_X + BOSS_TAMANO / 2.0f;
-    float cy = (float)BOSS_Y + BOSS_TAMANO / 2.0f;
+    float cx = VW(juego) * 0.475f + BOSS_TAMANO / 2.0f;
+    float cy = VH(juego) * 0.475f + BOSS_TAMANO / 2.0f;
     float px = juego->jugador.rect.x + TAMANO_SPRITE / 2.0f;
     float py = juego->jugador.rect.y + TAMANO_SPRITE / 2.0f;
     float angulos[3];
