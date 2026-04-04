@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ============================================
+# Salida del ejecutable
+# ============================================
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/windows)
+
+# Crear carpeta automáticamente
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/windows)
+
+# ============================================
 # Fuentes
 # ============================================
 set(SOURCES
@@ -30,6 +38,9 @@ set(SOURCES
     scenes/OptionsScene.cpp
 )
 
+# ============================================
+# Crear ejecutable
+# ============================================
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # ============================================
@@ -48,10 +59,24 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # ============================================
-# Windows: no abrir consola en release
+# Windows: no abrir consola
 # ============================================
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
+    )
+endif()
+
+# ============================================
+# Copiar TODAS las DLLs necesarias automáticamente
+# Usa script externo para evitar conflictos de $ con Ninja
+# ============================================
+if(WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND powershell -ExecutionPolicy Bypass -File
+            "${CMAKE_SOURCE_DIR}/copy_dlls.ps1"
+            -ExePath "$<TARGET_FILE:${PROJECT_NAME}>"
+            -DestDir "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+        COMMENT "Copiando DLLs a ejecutable/windows..."
     )
 endif()

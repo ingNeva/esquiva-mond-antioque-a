@@ -1,4 +1,5 @@
 .vscode/
 EsquivarBotellas.exe
-ejecutable windows/
+ejecutable/
 log.txt
+build/
