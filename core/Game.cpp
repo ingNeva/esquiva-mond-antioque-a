@@ -4,6 +4,7 @@
 #include "../entities/Player.h"
 #include "../entities/Enemy.h"
 #include "../entities/Machete.h"
+#include "../scenes/CountdownScene.h"
 
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -327,7 +328,6 @@ void reiniciarJuego(Juego* juego) {
     inicializarJugador(&juego->jugador);
     inicializarEnemigos(juego);
     inicializarMachete(juego);
-    juego->macheteAparecido      = false;
     juego->ultimoNivelDificultad = 0;
     juego->posicionNuevoPuntaje  = -1;
     juego->pistaSonando          = PISTA_NINGUNA;
@@ -344,5 +344,14 @@ void reiniciarJuego(Juego* juego) {
     juego->llave.pulsoTimer = 0.0f;
     juego->gameOverReproducido = false;
     juego->transicion = {};
-    juego->estado = ESTADO_JUGANDO;
+
+    // El machete y la intro se gestionan dentro de iniciarIntro()
+    // segun juego->nivelActual, no hay que tocarlo aqui.
+    juego->macheteEquipado  = false;
+    juego->macheteAparecido = false;
+    juego->machete.recogido = false;
+
+    // Lanzar la intro cinematica (el personaje caminando)
+    // iniciarIntro() se declara en CountdownScene.h
+    iniciarIntro(juego);
 }

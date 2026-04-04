@@ -129,8 +129,9 @@ void renderizarGameOver(Juego* juego) {
         renderizarTexto(juego, msgPos, margenI, (int)(H * 0.39f), verde);
     }
 
-    renderizarTexto(juego, "Enter / Cruz    Menu principal", margenI, (int)(H * 0.50f), amarillo);
-    renderizarTexto(juego, "ESC / START     Salir",          margenI, (int)(H * 0.58f), amarillo);
+    renderizarTexto(juego, "R / Triangulo   Reintentar nivel", margenI, (int)(H * 0.50f), verde);
+    renderizarTexto(juego, "Enter / Cruz    Menu principal",   margenI, (int)(H * 0.58f), amarillo);
+    renderizarTexto(juego, "ESC / START     Salir",            margenI, (int)(H * 0.66f), amarillo);
 
     // Divisor central + Top5
     SDL_SetRenderDrawColor(juego->renderer, 70, 70, 70, 255);
@@ -145,12 +146,30 @@ void renderizarGameOver(Juego* juego) {
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_EVENT_QUIT) { juego->ejecutando = false; return; }
         if (e.type == SDL_EVENT_KEY_DOWN) {
+            // R = reintentar el mismo nivel
+            if (e.key.key == SDLK_R) {
+                int nivelAnterior = juego->nivelActual;
+                juego->puntuacion = 0;
+                juego->puntosEnNivel = 0;
+                reiniciarJuego(juego);              // ya cambia a ESTADO_CUENTA_REGRESIVA
+                juego->nivelActual = nivelAnterior; // restaurar nivel antes del reinicio
+                return;
+            }
             if (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER) {
                 reiniciarJuego(juego); juego->estado = ESTADO_MENU;
             }
             if (e.key.key == SDLK_ESCAPE) juego->ejecutando = false;
         }
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+            // Triangulo (PS) / Y (Xbox) = reintentar
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH) {
+                int nivelAnterior = juego->nivelActual;
+                juego->puntuacion = 0;
+                juego->puntosEnNivel = 0;
+                reiniciarJuego(juego);
+                juego->nivelActual = nivelAnterior;
+                return;
+            }
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH) {
                 reiniciarJuego(juego); juego->estado = ESTADO_MENU;
             }

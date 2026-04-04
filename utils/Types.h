@@ -9,6 +9,9 @@
 // Structs de datos puros
 // ============================================
 
+// MAX_NIVELES debe estar definido en Constants.h.
+// Si no existe, agrega: #define MAX_NIVELES 4
+
 struct EntradaPuntaje {
     char nombre[MAX_NOMBRE];
     int  puntuacion;
@@ -160,6 +163,10 @@ struct Juego {
     bool pantallaCompleta;
     int  nivelActual;
     int  puntosEnNivel;
+
+    // === Sistema de niveles y progreso ===
+    bool nivelesDesbloqueados[MAX_NIVELES]; // true = nivel desbloqueado
+    int  opcionLevelSelectSeleccionada;     // cursor en el menú de niveles
 // Spritesheets del jugador (4 direcciones)
     SDL_Texture* texPlayerRight = nullptr;
     SDL_Texture* texPlayerLeft  = nullptr;

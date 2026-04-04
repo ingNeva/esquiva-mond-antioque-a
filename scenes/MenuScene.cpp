@@ -15,8 +15,8 @@ void renderizarMenu(Juego* juego) {
     // Titulo: 15% desde arriba, 5% desde la izquierda
     renderizarTexto(juego, "ESQUIVAR BOTELLAS", (int)(W * 0.05f), (int)(H * 0.15f), amarillo);
 
-    const char* opciones[]  = {"JUGAR", "INSTRUCCIONES", "OPCIONES", "SALIR"};
-    const int totalOpciones = 4;
+    const char* opciones[]  = {"JUGAR", "SELECCIONAR NIVEL", "INSTRUCCIONES", "OPCIONES", "SALIR"};
+    const int totalOpciones = 5;
     // Opciones: empieza al 30% vertical, espaciado 8% de altura
     const int inicioY   = (int)(H * 0.30f);
     const int espaciado = (int)(H * 0.08f);
@@ -62,7 +62,7 @@ void renderizarMenu(Juego* juego) {
 }
 
 void manejarEventosMenu(Juego* juego) {
-    const int totalOpciones = 4;
+    const int totalOpciones = 5;
     const int H = VH(juego);
     const int inicioY   = (int)(H * 0.30f);
     const int espaciado = (int)(H * 0.08f);
@@ -82,9 +82,16 @@ void manejarEventosMenu(Juego* juego) {
                 case SDLK_RETURN: case SDLK_KP_ENTER:
                     switch (juego->opcionMenuSeleccionada) {
                         case 0: iniciarCuentaRegresiva(juego);        break;
-                        case 1: juego->estado = ESTADO_INSTRUCCIONES; break;
-                        case 2: juego->estado = ESTADO_OPCIONES;      break;
-                        case 3: juego->ejecutando = false;            break;
+                        case 1:
+                            // Sincronizar cursor al nivel actual
+                            juego->opcionLevelSelectSeleccionada = juego->nivelActual - 1;
+                            if (juego->opcionLevelSelectSeleccionada < 0)
+                                juego->opcionLevelSelectSeleccionada = 0;
+                            juego->estado = ESTADO_SELECCION_NIVEL;
+                            break;
+                        case 2: juego->estado = ESTADO_INSTRUCCIONES; break;
+                        case 3: juego->estado = ESTADO_OPCIONES;      break;
+                        case 4: juego->ejecutando = false;            break;
                     }
                     break;
                 case SDLK_M:    toggleMusicaMute(juego); break;
@@ -104,9 +111,15 @@ void manejarEventosMenu(Juego* juego) {
                 case SDL_GAMEPAD_BUTTON_SOUTH:
                     switch (juego->opcionMenuSeleccionada) {
                         case 0: iniciarCuentaRegresiva(juego);        break;
-                        case 1: juego->estado = ESTADO_INSTRUCCIONES; break;
-                        case 2: juego->estado = ESTADO_OPCIONES;      break;
-                        case 3: juego->ejecutando = false;            break;
+                        case 1:
+                            juego->opcionLevelSelectSeleccionada = juego->nivelActual - 1;
+                            if (juego->opcionLevelSelectSeleccionada < 0)
+                                juego->opcionLevelSelectSeleccionada = 0;
+                            juego->estado = ESTADO_SELECCION_NIVEL;
+                            break;
+                        case 2: juego->estado = ESTADO_INSTRUCCIONES; break;
+                        case 3: juego->estado = ESTADO_OPCIONES;      break;
+                        case 4: juego->ejecutando = false;            break;
                     }
                     break;
                 default: break;
@@ -131,14 +144,19 @@ void manejarEventosMenu(Juego* juego) {
                 if (my >= fy && my <= fy + altoFila) {
                     switch (i) {
                         case 0: iniciarCuentaRegresiva(juego);        break;
-                        case 1: juego->estado = ESTADO_INSTRUCCIONES; break;
-                        case 2: juego->estado = ESTADO_OPCIONES;      break;
-                        case 3: juego->ejecutando = false;            break;
+                        case 1:
+                            juego->opcionLevelSelectSeleccionada = juego->nivelActual - 1;
+                            if (juego->opcionLevelSelectSeleccionada < 0)
+                                juego->opcionLevelSelectSeleccionada = 0;
+                            juego->estado = ESTADO_SELECCION_NIVEL;
+                            break;
+                        case 2: juego->estado = ESTADO_INSTRUCCIONES; break;
+                        case 3: juego->estado = ESTADO_OPCIONES;      break;
+                        case 4: juego->ejecutando = false;            break;
                     }
                 }
             }
         }
-        // Recargar fuentes si la ventana cambia de tamaño (ej: salir de fullscreen)
         if (e.type == SDL_EVENT_WINDOW_RESIZED) {
             recargarFuentes(juego);
         }

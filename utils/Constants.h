@@ -14,6 +14,7 @@
 #define DURACION_ANIMACION_ATAQUE 300
 #define RADIO_GIRO_MACHETE        50
 #define MAX_PUNTAJES              5
+#define MAX_NIVELES               5
 #define RUTA_SAVES                "saves/puntajes.bin"
 #define MAX_NOMBRE                32
 #ifndef M_PI
@@ -134,7 +135,8 @@ enum EstadoJuego {
     ESTADO_CUENTA_REGRESIVA,
     ESTADO_VICTORIA,
     ESTADO_OPCIONES,
-    ESTADO_INTRO          // ← NUEVO: cinemática de entrada al juego
+    ESTADO_INTRO,             // cinemática de entrada al juego
+    ESTADO_SELECCION_NIVEL    // menú de selección de nivel con bloqueos
 };
 
 enum TipoEnemigo {

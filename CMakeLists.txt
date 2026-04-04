@@ -36,6 +36,7 @@ set(SOURCES
     scenes/CountdownScene.cpp
     scenes/GameOverScene.cpp
     scenes/OptionsScene.cpp
+    scenes/LevelSelectScene.cpp
 )
 
 # ============================================

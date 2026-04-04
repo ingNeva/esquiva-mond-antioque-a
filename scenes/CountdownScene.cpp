@@ -30,11 +30,12 @@ void iniciarCuentaRegresiva(Juego* juego) {
     for (int f = 0; f < MAX_FLOATING_TEXT; f++) juego->floatingTexts[f].activo = false;
     juego->llave.activa     = false;
     juego->llave.pulsoTimer = 0.0f;
-    juego->nivelActual   = 1;
+    // nivelActual lo preserva el llamador (reiniciarJuego / LevelSelectScene)
+    // Solo reseteamos puntosEnNivel y audio
     juego->puntosEnNivel = 0;
     juego->pistaSonando  = PISTA_NINGUNA;
 
-    // Arrancamos la intro en lugar de la cuenta regresiva directa
+    // Lanzar la intro cinemática (el personaje caminando)
     iniciarIntro(juego);
 }
 
@@ -166,14 +167,21 @@ void iniciarIntro(Juego* juego) {
     const int W = VW(juego), H = VH(juego);
 
     // Jugador empieza en el borde izquierdo, centrado verticalmente
-    juego->jugador.rect.x = -(float)TAMANO_SPRITE;   // fuera de pantalla, entra desde la izq
+    juego->jugador.rect.x = -(float)TAMANO_SPRITE;
     juego->jugador.rect.y = (float)(H - TAMANO_SPRITE) / 2.0f;
-    juego->jugador.direccion  = DIR_DERECHA;
-    juego->jugador.frameAnim  = 0;
+    juego->jugador.direccion    = DIR_DERECHA;
+    juego->jugador.frameAnim    = 0;
     juego->jugador.enMovimiento = true;
     juego->jugador.ultimoFrame  = SDL_GetTicks();
 
-    // Machete aparece en el centro exacto de la pantalla
+    // En niveles >= 4 el machete ya esta equipado desde el inicio
+    if (juego->nivelActual >= 4) {
+        juego->machete.recogido = true;
+        juego->macheteEquipado  = true;
+        juego->macheteAparecido = true;
+    }
+
+    // Machete aparece en el centro exacto de la pantalla (solo nivel 1)
     juego->machete.rect.x = (float)(W - TAMANO_SPRITE) / 2.0f;
     juego->machete.rect.y = (float)(H - TAMANO_SPRITE) / 2.0f;
     juego->machete.recogido   = false;
@@ -250,66 +258,91 @@ void renderizarIntro(Juego* juego) {
         // Avanzar frame de caminata
         actualizarAnimacionJugador(&juego->jugador);
 
-        // Machete pulsando en el suelo (brillo senoidal)
-        float pulso = 0.7f + 0.3f * sinf((float)elapsed * 0.008f);
-        SDL_SetTextureColorMod(juego->texMachete,
-            255, (Uint8)(220 * pulso), (Uint8)(50 * pulso));
-        SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
-        SDL_SetTextureColorMod(juego->texMachete, 255, 255, 255);
+        // Machete pulsando en el suelo (solo nivel 1, en otros ya esta equipado)
+        if (juego->nivelActual == 1 && !juego->macheteEquipado) {
+            float pulso = 0.7f + 0.3f * sinf((float)elapsed * 0.008f);
+            SDL_SetTextureColorMod(juego->texMachete,
+                255, (Uint8)(220 * pulso), (Uint8)(50 * pulso));
+            SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
+            SDL_SetTextureColorMod(juego->texMachete, 255, 255, 255);
+        }
+
+        // Machete equipado visible al hombro (niveles >= 4)
+        if (juego->macheteEquipado) {
+            juego->machete.rect.x = juego->jugador.rect.x + OFFSET_MACHETE_X;
+            juego->machete.rect.y = juego->jugador.rect.y + OFFSET_MACHETE_Y;
+            SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
+        }
 
         // Jugador
         dibujarJugadorIntro(juego);
     }
-    // ── FASE 2: destello al recoger ───────────────────────────────────
+    // ── FASE 2: destello al recoger (solo nivel 1) ──────────────────────
     else if (elapsed < INTRO_DURACION_CAMINAR_MS + INTRO_DURACION_RECOGER_MS) {
         Uint64 tRecoger = elapsed - INTRO_DURACION_CAMINAR_MS;
-        float  t        = (float)tRecoger / (float)INTRO_DURACION_RECOGER_MS; // 0→1
+        float  t        = (float)tRecoger / (float)INTRO_DURACION_RECOGER_MS;
 
-        // Jugador quieto en el centro, mirando a la derecha
-        juego->jugador.rect.x   = cx;
-        juego->jugador.rect.y   = cy;
+        juego->jugador.rect.x       = cx;
+        juego->jugador.rect.y       = cy;
         juego->jugador.enMovimiento = false;
         juego->jugador.frameAnim    = 0;
 
-        // Primera mitad: machete sube hacia el jugador (escala crece y se desvanece)
-        if (t < 0.5f) {
-            float esc    = 1.0f + t * 2.0f;          // 1x → 2x
-            Uint8 alpha  = (Uint8)(255 * (1.0f - t * 2.0f));
-            int   sz     = (int)(TAMANO_SPRITE * esc);
-            SDL_FRect mRect = {
-                juego->machete.rect.x - (sz - TAMANO_SPRITE) * 0.5f,
-                juego->machete.rect.y - (sz - TAMANO_SPRITE) * 0.5f,
-                (float)sz, (float)sz
+        if (juego->nivelActual == 1) {
+            // Machete sube hacia el jugador y desaparece
+            if (t < 0.5f) {
+                float esc   = 1.0f + t * 2.0f;
+                Uint8 alpha = (Uint8)(255 * (1.0f - t * 2.0f));
+                int   sz    = (int)(TAMANO_SPRITE * esc);
+                SDL_FRect mRect = {
+                    juego->machete.rect.x - (sz - TAMANO_SPRITE) * 0.5f,
+                    juego->machete.rect.y - (sz - TAMANO_SPRITE) * 0.5f,
+                    (float)sz, (float)sz
+                };
+                SDL_SetTextureAlphaMod(juego->texMachete, alpha);
+                SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &mRect);
+                SDL_SetTextureAlphaMod(juego->texMachete, 255);
+            }
+            // Destello de recogida
+            Uint8 flashAlpha = (Uint8)(180 * (1.0f - t));
+            SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(juego->renderer, 255, 240, 120, flashAlpha);
+            float flashR = t * 120.0f;
+            SDL_FRect flash = {
+                cx + TAMANO_SPRITE * 0.5f - flashR,
+                cy + TAMANO_SPRITE * 0.5f - flashR,
+                flashR * 2.0f, flashR * 2.0f
             };
-            SDL_SetTextureAlphaMod(juego->texMachete, alpha);
-            SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &mRect);
-            SDL_SetTextureAlphaMod(juego->texMachete, 255);
-        }
-        // else: machete ya recogido, no se dibuja
+            SDL_RenderFillRect(juego->renderer, &flash);
+            SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
 
-        // Destello blanco que se expande y desvanece
-        Uint8 flashAlpha = (Uint8)(180 * (1.0f - t));
-        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(juego->renderer, 255, 240, 120, flashAlpha);
-        float flashR = t * 120.0f;
-        SDL_FRect flash = {
-            cx + TAMANO_SPRITE * 0.5f - flashR,
-            cy + TAMANO_SPRITE * 0.5f - flashR,
-            flashR * 2.0f, flashR * 2.0f
-        };
-        SDL_RenderFillRect(juego->renderer, &flash);
-        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+            if (t >= 0.99f) {
+                juego->machete.recogido = true;
+                juego->macheteEquipado  = true;
+                juego->machete.rect.x   = juego->jugador.rect.x + OFFSET_MACHETE_X;
+                juego->machete.rect.y   = juego->jugador.rect.y + OFFSET_MACHETE_Y;
+            }
+        } else {
+            // Otros niveles: pequeño destello de "listo" y machete al hombro
+            Uint8 flashAlpha = (Uint8)(120 * (1.0f - t));
+            SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(juego->renderer, 100, 200, 255, flashAlpha);
+            float flashR = t * 80.0f;
+            SDL_FRect flash = {
+                cx + TAMANO_SPRITE * 0.5f - flashR,
+                cy + TAMANO_SPRITE * 0.5f - flashR,
+                flashR * 2.0f, flashR * 2.0f
+            };
+            SDL_RenderFillRect(juego->renderer, &flash);
+            SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+
+            if (juego->macheteEquipado) {
+                juego->machete.rect.x = juego->jugador.rect.x + OFFSET_MACHETE_X;
+                juego->machete.rect.y = juego->jugador.rect.y + OFFSET_MACHETE_Y;
+                SDL_RenderTexture(juego->renderer, juego->texMachete, NULL, &juego->machete.rect);
+            }
+        }
 
         dibujarJugadorIntro(juego);
-
-        // Al terminar la fase marcamos el machete como equipado
-        if (t >= 0.99f) {
-            juego->machete.recogido  = true;
-            juego->macheteEquipado   = true;
-            // Reposicionar el machete al hombro del jugador
-            juego->machete.rect.x = juego->jugador.rect.x + OFFSET_MACHETE_X;
-            juego->machete.rect.y = juego->jugador.rect.y + OFFSET_MACHETE_Y;
-        }
     }
     // ── FASE 3: texto y machete equipado ─────────────────────────────
     else if (elapsed < INTRO_DURACION_TOTAL_MS) {

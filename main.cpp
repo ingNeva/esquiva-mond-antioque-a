@@ -26,6 +26,8 @@
 #include "scenes/CountdownScene.h"
 #include "scenes/GameOverScene.h"
 #include "scenes/OptionsScene.h"
+#include "scenes/LevelSelectScene.h"
+#include "utils/SaveManager.h"
 
 // ============================================
 // FUNCION PRINCIPAL
@@ -71,6 +73,8 @@ int main() {
     crearDirectorioSaves();
     cargarPuntajes(&juego.tablaPuntajes);
     cargarConfig(&juego);   // carga resolucion, fullscreen, audio (primera vez: fullscreen por defecto)
+    cargarProgreso(&juego); // carga nivelesDesbloqueados[] desde saves/progreso.bin
+    juego.opcionLevelSelectSeleccionada = 0;
 
     if (!inicializarSDL(&juego)) {
         log = fopen("log.txt", "a");
@@ -165,6 +169,11 @@ int main() {
 
             case ESTADO_OPCIONES:
                 renderizarOpciones(&juego);
+                break;
+
+            case ESTADO_SELECCION_NIVEL:
+                manejarEventosSeleccionNivel(&juego);
+                if (juego.ejecutando) renderizarSeleccionNivel(&juego);
                 break;
         }
         SDL_Delay(16);

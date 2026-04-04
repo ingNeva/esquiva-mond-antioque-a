@@ -11,13 +11,21 @@
 // Hitbox reducida del jugador
 // ============================================
 static SDL_FRect hitboxJugador(const Jugador* j) {
-    const float margenX = j->rect.w * 0.25f;
-    const float margenY = j->rect.h * 0.20f;
+    // El sprite de 64x64 tiene sombrero arriba y espacio vacio a los lados.
+    // Hitbox ajustada al cuerpo visible (torso + piernas), sin sombrero.
+    //
+    //  margenX  = 30% a cada lado  → ancho hitbox ≈ 40% del sprite (~25px)
+    //  margenTop = 35% arriba      → recorta el sombrero
+    //  margenBot = 5%  abajo       → deja los pies
+    //
+    const float margenX   = j->rect.w * 0.30f;
+    const float margenTop = j->rect.h * 0.35f;
+    const float margenBot = j->rect.h * 0.05f;
     return {
         j->rect.x + margenX,
-        j->rect.y + margenY,
+        j->rect.y + margenTop,
         j->rect.w - margenX * 2.0f,
-        j->rect.h - margenY * 2.0f
+        j->rect.h - margenTop - margenBot
     };
 }
 
@@ -98,6 +106,17 @@ void mundoActualizar(Juego* juego) {
 
     // ── Floating texts ────────────────────────────
     actualizarFloatingTexts(juego);
+
+// ── DEBUG: descomentar para ver la hitbox en pantalla ────────
+#define DEBUG_HITBOX
+#ifdef DEBUG_HITBOX
+    SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(juego->renderer, 255, 0, 0, 120);
+    SDL_RenderFillRect(juego->renderer, &hj);
+    SDL_SetRenderDrawColor(juego->renderer, 255, 0, 0, 255);
+    SDL_RenderRect(juego->renderer, &hj);
+    SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+#endif
 }
 
 // ============================================
