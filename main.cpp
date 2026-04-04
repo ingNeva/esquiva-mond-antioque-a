@@ -118,6 +118,7 @@ int main() {
             case ESTADO_JUGANDO:
                 manejarEventos(&juego);
                 actualizarJugador(&juego.jugador, juego.gamepad);
+                actualizarAnimacionJugador(&juego.jugador);
                 actualizarAnimacionAtaque(&juego);
                 actualizarPosicionMacheteEquipado(&juego);
                 mundoActualizar(&juego);

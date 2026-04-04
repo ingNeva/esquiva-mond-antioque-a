@@ -7,3 +7,4 @@
 // ============================================
 void inicializarJugador(Jugador* jugador);
 void mostrarPuntuacionPantalla(Juego* juego);
+void actualizarAnimacionJugador(Jugador* jugador);

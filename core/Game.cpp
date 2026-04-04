@@ -62,7 +62,7 @@ void cargarConfig(Juego* juego) {
 }
 
 // ============================================
-// Nivel actual
+// Nivel actual (por puntuacion — solo para compatibilidad legacy)
 // ============================================
 int nivelActual(int puntuacion) {
     if (puntuacion >= UMBRAL_NIVEL_5) return 5;
@@ -124,7 +124,11 @@ bool cargarTexturas(Juego* juego) {
         if (!juego->texFondos[i])
             SDL_Log("Advertencia: no se cargo fondo nivel %d (%s): %s", i+1, rutasFondos[i], SDL_GetError());
     }
-    juego->texJugador = IMG_LoadTexture(juego->renderer, "imagenes/player.png");
+    juego->texPlayerRight = IMG_LoadTexture(juego->renderer, "imagenes/player_walk_right.png");
+    juego->texPlayerLeft  = IMG_LoadTexture(juego->renderer, "imagenes/player_walk_left.png");
+    juego->texPlayerDown  = IMG_LoadTexture(juego->renderer, "imagenes/player_walk_down.png");
+    juego->texPlayerUp    = IMG_LoadTexture(juego->renderer, "imagenes/player_walk_up.png");
+    juego->texJugador     = juego->texPlayerDown;
     juego->texEnemigo = IMG_LoadTexture(juego->renderer, "imagenes/enemy.png");
     juego->texMachete = IMG_LoadTexture(juego->renderer, "imagenes/machete.png");
 
@@ -287,7 +291,14 @@ void renderizarTop5(Juego* juego, int x, int y, int posicionResaltada) {
 void limpiarRecursos(Juego* juego) {
     limpiarAudio(juego);
     if (juego->gamepad) SDL_CloseGamepad(juego->gamepad);
-    if (juego->texJugador) SDL_DestroyTexture(juego->texJugador);
+    // Spritesheets jugador (los 4 son independientes)
+    if (juego->texPlayerRight) SDL_DestroyTexture(juego->texPlayerRight);
+    if (juego->texPlayerLeft)  SDL_DestroyTexture(juego->texPlayerLeft);
+    if (juego->texPlayerDown)  SDL_DestroyTexture(juego->texPlayerDown);
+    if (juego->texPlayerUp)    SDL_DestroyTexture(juego->texPlayerUp);
+    // texJugador es alias de texPlayerDown, NO destruir por separado
+    if (juego->texEnemigo) SDL_DestroyTexture(juego->texEnemigo);
+    if (juego->texMachete) SDL_DestroyTexture(juego->texMachete);
     if (juego->texEnemigo) SDL_DestroyTexture(juego->texEnemigo);
     if (juego->texMachete) SDL_DestroyTexture(juego->texMachete);
     if (juego->texEnemigoRapido     && juego->texEnemigoRapido     != juego->texEnemigo) SDL_DestroyTexture(juego->texEnemigoRapido);

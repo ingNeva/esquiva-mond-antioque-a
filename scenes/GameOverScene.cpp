@@ -120,7 +120,7 @@ void renderizarGameOver(Juego* juego) {
     renderizarTexto(juego, scoreTexto, margenI, (int)(H * 0.23f), blanco);
 
     char nivelTexto[64];
-    SDL_snprintf(nivelTexto, sizeof(nivelTexto), "Nivel alcanzado: %d", nivelActual(juego->puntuacion));
+    SDL_snprintf(nivelTexto, sizeof(nivelTexto), "Nivel alcanzado: %d", juego->nivelActual);
     renderizarTexto(juego, nivelTexto, margenI, (int)(H * 0.31f), amarillo);
 
     if (juego->posicionNuevoPuntaje >= 0) {

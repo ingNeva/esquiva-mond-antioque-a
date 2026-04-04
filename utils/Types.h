@@ -19,9 +19,16 @@ struct TablaPuntajes {
     int            cantidad;
 };
 
+enum DireccionJugador { DIR_DERECHA, DIR_IZQUIERDA, DIR_ABAJO, DIR_ARRIBA };
+
 struct Jugador {
     SDL_FRect rect;
     int velocidad;
+    // --- Animación de caminata ---
+    DireccionJugador direccion  = DIR_ABAJO;
+    int    frameAnim            = 0;
+    Uint64 ultimoFrame          = 0;
+    bool   enMovimiento         = false;
 };
 
 struct Enemigo {
@@ -153,4 +160,9 @@ struct Juego {
     bool pantallaCompleta;
     int  nivelActual;
     int  puntosEnNivel;
+// Spritesheets del jugador (4 direcciones)
+    SDL_Texture* texPlayerRight = nullptr;
+    SDL_Texture* texPlayerLeft  = nullptr;
+    SDL_Texture* texPlayerDown  = nullptr;
+    SDL_Texture* texPlayerUp    = nullptr;
 };

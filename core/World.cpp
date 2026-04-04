@@ -8,6 +8,20 @@
 #include "../entities/Llave.h"
 
 // ============================================
+// Hitbox reducida del jugador
+// ============================================
+static SDL_FRect hitboxJugador(const Jugador* j) {
+    const float margenX = j->rect.w * 0.25f;
+    const float margenY = j->rect.h * 0.20f;
+    return {
+        j->rect.x + margenX,
+        j->rect.y + margenY,
+        j->rect.w - margenX * 2.0f,
+        j->rect.h - margenY * 2.0f
+    };
+}
+
+// ============================================
 // Colision AABB  (unica definicion en el proyecto)
 // ============================================
 bool verificarColision(SDL_FRect* a, SDL_FRect* b) {
@@ -16,15 +30,14 @@ bool verificarColision(SDL_FRect* a, SDL_FRect* b) {
 
 // ============================================
 // Ciclo de actualizacion principal
-// Reemplaza la logica que antes vivia dispersa
-// entre actualizarEnemigos(), actualizarBoss(),
-// actualizarLlave() y verificarRecogidaMachete()
 // ============================================
 void mundoActualizar(Juego* juego) {
-    int nivel = nivelActual(juego->puntuacion);
+    int nivel = juego->nivelActual;
+
+    // Hitbox reducida — declarada una sola vez al inicio
+    SDL_FRect hj = hitboxJugador(&juego->jugador);
 
     // ── Spawn de enemigo extra al subir de nivel ──
-    // después
     if (juego->nivelActual > juego->ultimoNivelDificultad
         && juego->enemigosActivos < MAX_ENEMIGOS) {
         generarEnemigo(&juego->enemigos[juego->enemigosActivos], juego->nivelActual);
@@ -44,7 +57,6 @@ void mundoActualizar(Juego* juego) {
         Enemigo* en = &juego->enemigos[i];
         moverEnemigo(en, juego->jugador, nivel, juego);
 
-        // Sale de pantalla -> esquivado (usando tamaño real de ventana)
         const float screenW = (float)VW(juego);
         const float screenH = (float)VH(juego);
         if (en->rect.x < -80 || en->rect.x > screenW + 20 ||
@@ -54,7 +66,7 @@ void mundoActualizar(Juego* juego) {
         }
 
         // Colision con jugador -> game over
-        if (verificarColision(&juego->jugador.rect, &en->rect)) {
+        if (verificarColision(&hj, &en->rect)) {
             mundoOnColisionJugador(juego);
             return;
         }
@@ -62,7 +74,7 @@ void mundoActualizar(Juego* juego) {
 
     // ── Recogida de machete ───────────────────────
     if (!juego->machete.recogido &&
-        verificarColision(&juego->jugador.rect, &juego->machete.rect)) {
+        verificarColision(&hj, &juego->machete.rect)) {
         juego->machete.recogido = true;
         juego->macheteEquipado  = true;
         juego->machete.rect.w   = 48.0f;
@@ -73,7 +85,7 @@ void mundoActualizar(Juego* juego) {
 
     // ── Trofeo del boss ───────────────────────────
     if (juego->trofeoActivo &&
-        verificarColision(&juego->jugador.rect, &juego->trofeoRect)) {
+        verificarColision(&hj, &juego->trofeoRect)) {
         mundoOnTrofeoRecogido(juego);
         return;
     }
@@ -104,7 +116,7 @@ void mundoOnEnemigoMuerto(Juego* juego, int idx, float x, float y) {
         default:                 pts = PTS_MATAR_NORMAL; break;
     }
     agregarPuntos(juego, pts, x, y);
-    generarEnemigo(en, nivelActual(juego->puntuacion));
+    generarEnemigo(en, juego->nivelActual);
 }
 
 void mundoOnPilarDestruido(Juego* juego, int indicePilar) {
@@ -117,7 +129,6 @@ void mundoOnPilarDestruido(Juego* juego, int indicePilar) {
     agregarPuntos(juego, 25, p->rect.x + 24, p->rect.y);
     if (juego->bossHP <= 2) juego->estadoBoss = BOSS_ENFURECIDO;
     if (juego->bossHP <= 0) {
-        // Posicion del boss centrada en pantalla (misma logica que Boss.cpp)
         const float bossX = (float)(VW(juego) / 2 - BOSS_TAMANO / 2);
         const float bossY = (float)(VH(juego) / 2 - BOSS_TAMANO / 2);
         juego->estadoBoss        = BOSS_MUERTO;
@@ -142,7 +153,7 @@ void mundoOnEnemigoEsquivado(Juego* juego, int idx) {
         default:                 pts = PTS_ESQUIVAR_NORMAL; break;
     }
     agregarPuntos(juego, pts, en->rect.x + en->rect.w / 2.0f, en->rect.y);
-    generarEnemigo(en, nivelActual(juego->puntuacion));
+    generarEnemigo(en, juego->nivelActual);
 }
 
 void mundoOnColisionJugador(Juego* juego) {

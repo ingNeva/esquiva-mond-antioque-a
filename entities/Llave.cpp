@@ -46,10 +46,12 @@ void actualizarLlave(Juego* juego) {
         juego->llave.activa = false;
         agregarPuntos(juego, PTS_LLAVE_BONUS,
             juego->llave.rect.x + LLAVE_TAMANO / 2, juego->llave.rect.y);
-        juego->nivelActual++;
+        int nivelOrigen  = juego->nivelActual;
+        int nivelDestino = nivelOrigen + 1;
         juego->puntosEnNivel = 0;
         juego->llave.activa  = false;
-        iniciarTransicionNivel(juego, juego->nivelActual);
+        iniciarTransicionNivel(juego, nivelDestino);
+        // nivelActual se actualiza al TERMINAR la transicion, no aqui
     }
 }
 void renderizarLlave(Juego* juego) {

@@ -141,6 +141,7 @@ void iniciarTransicionNivel(Juego* juego, int nivelNuevo) {
 void actualizarTransicionNivel(Juego* juego) {
     Uint64 elapsed = SDL_GetTicks() - juego->transicion.inicio;
     if (elapsed >= DURACION_TRANSICION) {
+        juego->nivelActual       = juego->transicion.nivelNuevo;
         juego->transicion.activa = false;
         juego->estado = ESTADO_JUGANDO;
         juego->pistaSonando = PISTA_NINGUNA;
@@ -197,8 +198,16 @@ void renderizarTransicionNivel(Juego* juego) {
             colorTitulo    = {220, 100, 255, 255};
             colorSubtitulo = {180,  40, 255, 255};
         }
-        const char* tituloNivel = (nivel == 4) ? "NIVEL 4" : "NIVEL 5";
-        const char* subtitulo   = (nivel == 4) ? "!EL JEFE SE ACERCA!" : "!MAXIMA DIFICULTAD!";
+        char tituloNivel[32];
+        SDL_snprintf(tituloNivel, sizeof(tituloNivel), "NIVEL %d", nivel);
+        const char* subtitulo;
+        switch (nivel) {
+            case 2: subtitulo = "LA COSA SE PONE BUENA"; break;
+            case 3: subtitulo = "CUIDADO, MAS ENEMIGOS"; break;
+            case 4: subtitulo = "!EL JEFE SE ACERCA!";   break;
+            case 5: subtitulo = "!MAXIMA DIFICULTAD!";   break;
+            default: subtitulo = "";                     break;
+        }
 
         // Centrado real con VW/VH
         int txW = 0, txH = 0, stW = 0, stH = 0;

@@ -13,9 +13,12 @@ void dibujarJuego(Juego* juego) {
     SDL_Texture* texFondoActual = juego->texFondos[nivelIdx];
 
     if (juego->transicion.activa) {
-        int nivelDestino = SDL_clamp(juego->transicion.nivelNuevo - 1, 0, 4);
+        // fondo origen = nivel anterior al destino
+        int nivelOrigenIdx  = SDL_clamp(juego->transicion.nivelNuevo - 2, 0, 4);
+        int nivelDestino    = SDL_clamp(juego->transicion.nivelNuevo - 1, 0, 4);
+        SDL_Texture* texFondoOrigen  = juego->texFondos[nivelOrigenIdx];
         SDL_Texture* texFondoDestino = juego->texFondos[nivelDestino];
-        if (texFondoActual) SDL_RenderTexture(juego->renderer, texFondoActual, NULL, NULL);
+        if (texFondoOrigen)  SDL_RenderTexture(juego->renderer, texFondoOrigen,  NULL, NULL);
         if (texFondoDestino) {
             float progreso = (float)(SDL_GetTicks() - juego->transicion.inicio) / (float)DURACION_TRANSICION;
             float alpha = SDL_clamp(progreso * 1.6f - 0.3f, 0.0f, 1.0f);
@@ -63,8 +66,20 @@ void dibujarJuego(Juego* juego) {
         SDL_RenderTexture(juego->renderer, juego->texTrofeo, NULL, &tr);
     }
 
-    // Jugador
-    SDL_RenderTexture(juego->renderer, juego->texJugador, NULL, &juego->jugador.rect);
+    // Jugador — spritesheet animado por dirección
+    SDL_Texture* texJugador = nullptr;
+    switch (juego->jugador.direccion) {
+        case DIR_DERECHA:   texJugador = juego->texPlayerRight; break;
+        case DIR_IZQUIERDA: texJugador = juego->texPlayerLeft;  break;
+        case DIR_ABAJO:     texJugador = juego->texPlayerDown;  break;
+        case DIR_ARRIBA:    texJugador = juego->texPlayerUp;    break;
+    }
+    if (texJugador) {
+        SDL_FRect src = { (float)(juego->jugador.frameAnim * 64), 0.0f, 64.0f, 64.0f };
+        SDL_RenderTexture(juego->renderer, texJugador, &src, &juego->jugador.rect);
+    } else {
+        SDL_RenderTexture(juego->renderer, juego->texJugador, NULL, &juego->jugador.rect);
+    }
 
     // Enemigos
     for (int i = 0; i < juego->enemigosActivos; i++) {

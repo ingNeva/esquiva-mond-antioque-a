@@ -52,3 +52,14 @@ void mostrarPuntuacionPantalla(Juego* juego) {
         SDL_snprintf(textoAudio, sizeof(textoAudio), "SIN AUDIO");
     renderizarTextoPequeno(juego, textoAudio, W - (int)(W * 0.07f), (int)(H * 0.009f), colorAudio);
 }
+void actualizarAnimacionJugador(Jugador* j) {
+    if (j->enMovimiento) {
+        Uint64 ahora = SDL_GetTicks();
+        if (ahora - j->ultimoFrame > 80) {  // 80ms ≈ 12fps
+            j->frameAnim = (j->frameAnim + 1) % 8;
+            j->ultimoFrame = ahora;
+        }
+    } else {
+        j->frameAnim = 0;
+    }
+}

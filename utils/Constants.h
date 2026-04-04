@@ -29,10 +29,10 @@
 #define UMBRAL_NIVEL_3   150
 #define UMBRAL_NIVEL_4   350
 #define UMBRAL_NIVEL_5   700
-#define PUNTOS_LLAVE_NIVEL_1   40
-#define PUNTOS_LLAVE_NIVEL_2   60
-#define PUNTOS_LLAVE_NIVEL_3   80
-#define PUNTOS_LLAVE_NIVEL_4   100
+#define PUNTOS_LLAVE_NIVEL_1   1800
+#define PUNTOS_LLAVE_NIVEL_2   2200
+#define PUNTOS_LLAVE_NIVEL_3   2800
+#define PUNTOS_LLAVE_NIVEL_4   3500
 #define DURACION_TRANSICION       2500
 
 // ============================================
