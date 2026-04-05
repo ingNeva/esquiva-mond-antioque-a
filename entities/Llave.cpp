@@ -1,5 +1,6 @@
 #include "Llave.h"
 #include "../core/Game.h"
+#include "../utils/SaveManager.h"
 #include "../utils/ScoreManager.h"
 #include "../entities/Boss.h"
 #include <cmath>
@@ -56,6 +57,8 @@ void actualizarLlave(Juego* juego) {
         agregarPuntos(juego, PTS_LLAVE_BONUS,
             juego->llave.rect.x + LLAVE_TAMANO / 2, juego->llave.rect.y);
         juego->puntosEnNivel = 0;
+        // Desbloquear el siguiente nivel y guardar progreso en disco
+        desbloquearSiguienteNivel(juego);
         iniciarTransicionNivel(juego, juego->llave.nivelDestino);
     }
 }

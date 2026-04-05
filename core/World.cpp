@@ -107,8 +107,8 @@ void mundoActualizar(Juego* juego) {
     // ── Floating texts ────────────────────────────
     actualizarFloatingTexts(juego);
 
-// ── DEBUG: descomentar para ver la hitbox en pantalla ────────
-#define DEBUG_HITBOX
+// ── DEBUG: descomentar #define para ver la hitbox en pantalla ──
+// #define DEBUG_HITBOX
 #ifdef DEBUG_HITBOX
     SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(juego->renderer, 255, 0, 0, 120);
