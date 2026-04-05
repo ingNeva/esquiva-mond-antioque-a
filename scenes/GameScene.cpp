@@ -86,7 +86,12 @@ void dibujarJuego(Juego* juego) {
         SDL_Texture* tex = nullptr;
         switch (en->tipo) {
             case ENEMIGO_RAPIDO:     tex = juego->texEnemigoRapido;     break;
-            case ENEMIGO_TANQUE:     tex = juego->texEnemigoTanque;     break;
+            case ENEMIGO_TANQUE:
+                // En nivel 5 el tanque usa la textura verde (espejo)
+                tex = (juego->nivelActual >= 5)
+                    ? juego->texEnemigoEspejo
+                    : juego->texEnemigoTanque;
+                break;
             case ENEMIGO_ZIGZAG:     tex = juego->texEnemigoZigzag;     break;
             case ENEMIGO_BOMBARDERO: tex = juego->texEnemigoBombardero; break;
             case ENEMIGO_ESPEJO:     tex = juego->texEnemigoEspejo;     break;

@@ -1,7 +1,13 @@
 #include "Enemy.h"
 #include "../core/Game.h"
+#include "../utils/ScoreManager.h"
 #include <cmath>
 #include <cstdlib>
+
+// Radio en px dentro del cual un enemigo que pasó se considera "esquivado activamente"
+#define RADIO_ESQUIVE_CERCANO  90.0f
+// Fracción de enemigos que apuntan directo al jugador en niveles 1-3
+// (el primero de cada batch siempre apunta)
 
 void inicializarEnemigos(Juego* juego) {
     juego->enemigosActivos = 1;
@@ -9,7 +15,26 @@ void inicializarEnemigos(Juego* juego) {
     generarEnemigo(&juego->enemigos[0], 1);
 }
 
+// ── Orienta la velocidad del enemigo hacia el jugador ─────────────────
+static void orientarHaciaJugador(Enemigo* en, const Jugador* jugador, float speed) {
+    float tx = jugador->rect.x + jugador->rect.w * 0.5f;
+    float ty = jugador->rect.y + jugador->rect.h * 0.5f;
+    float ex = en->rect.x + en->rect.w * 0.5f;
+    float ey = en->rect.y + en->rect.h * 0.5f;
+    float dx = tx - ex, dy = ty - ey;
+    float dist = sqrtf(dx*dx + dy*dy);
+    if (dist > 1.0f) {
+        en->velX = (dx / dist) * speed;
+        en->velY = (dy / dist) * speed;
+    }
+    en->apuntaAlJugador = true;
+}
+
 void generarEnemigo(Enemigo* en, int nivel) {
+    generarEnemigoConJugador(en, nivel, nullptr);
+}
+
+void generarEnemigoConJugador(Enemigo* en, int nivel, const Jugador* jugador) {
     int lado = rand() % 4;
     en->rect.w = (float)TAMANO_SPRITE;
     en->rect.h = (float)TAMANO_SPRITE;
@@ -32,23 +57,25 @@ void generarEnemigo(Enemigo* en, int nivel) {
             en->velX = 0.0f; en->velY = -5.0f; break;
     }
     en->vida = 1; en->anguloZigzag = 0.0f; en->timerBomba = 0.0f;
+    en->apuntaAlJugador       = false;
+    en->esquiveCercanoContado = false;
 
     int r = rand() % 100;
+    // ENEMIGO_TANQUE eliminado — reemplazado por ENEMIGO_ESPEJO lento
     if (nivel >= 5) {
-        if      (r < 30) en->tipo = ENEMIGO_ESPEJO;
+        if      (r < 35) en->tipo = ENEMIGO_ESPEJO;
         else if (r < 55) en->tipo = ENEMIGO_BOMBARDERO;
         else if (r < 75) en->tipo = ENEMIGO_ZIGZAG;
-        else if (r < 90) en->tipo = ENEMIGO_TANQUE;
         else             en->tipo = ENEMIGO_RAPIDO;
     } else if (nivel == 4) {
         if      (r < 30) en->tipo = ENEMIGO_BOMBARDERO;
         else if (r < 55) en->tipo = ENEMIGO_ZIGZAG;
-        else if (r < 75) en->tipo = ENEMIGO_TANQUE;
+        else if (r < 75) en->tipo = ENEMIGO_ESPEJO;   // antes: TANQUE
         else if (r < 90) en->tipo = ENEMIGO_RAPIDO;
         else             en->tipo = ENEMIGO_BASICO;
     } else if (nivel == 3) {
         if      (r < 30) en->tipo = ENEMIGO_ZIGZAG;
-        else if (r < 55) en->tipo = ENEMIGO_TANQUE;
+        else if (r < 55) en->tipo = ENEMIGO_ESPEJO;   // antes: TANQUE
         else if (r < 80) en->tipo = ENEMIGO_RAPIDO;
         else             en->tipo = ENEMIGO_BASICO;
     } else if (nivel == 2) {
@@ -59,13 +86,21 @@ void generarEnemigo(Enemigo* en, int nivel) {
     switch (en->tipo) {
         case ENEMIGO_RAPIDO:
             en->velX *= 1.8f; en->velY *= 1.8f;
-            en->rect.w = 48.0f; en->rect.h = 48.0f; break;
-        case ENEMIGO_TANQUE:
-            en->velX *= 0.5f; en->velY *= 0.5f;
-            en->rect.w = 80.0f; en->rect.h = 80.0f; en->vida = 3; break;
+            en->rect.w = 48.0f; en->rect.h = 48.0f;
+            break;
+        case ENEMIGO_ESPEJO:
+            en->rect.w = 72.0f; en->rect.h = 72.0f;
+            break;
         case ENEMIGO_ZIGZAG:
             en->velX *= 0.9f; en->velY *= 0.9f; break;
         default: break;
+    }
+
+    // En niveles 1-3, si se proporcionó jugador → orientar directo a él
+    // El tipo ESPEJO ya tiene su propia lógica de persecución en moverEnemigo
+    if (jugador && nivel <= 3 && en->tipo != ENEMIGO_ESPEJO) {
+        float speed = sqrtf(en->velX*en->velX + en->velY*en->velY);
+        orientarHaciaJugador(en, jugador, speed);
     }
 }
 
@@ -96,13 +131,21 @@ void moverEnemigo(Enemigo* en, const Jugador& jugador, int nivel, Juego* juego) 
             }
             break;
         case ENEMIGO_ESPEJO: {
-            float targetX = (ANCHO_VENTANA - TAMANO_SPRITE) - jugador.rect.x;
-            float targetY = (ALTO_VENTANA  - TAMANO_SPRITE) - jugador.rect.y;
-            float ddx = targetX - en->rect.x, ddy = targetY - en->rect.y;
+            // Persigue la posicion espejo del jugador (opuesta en pantalla)
+            float screenW = (float)VW(juego);
+            float screenH = (float)VH(juego);
+            float targetX = (screenW - TAMANO_SPRITE) - jugador.rect.x;
+            float targetY = (screenH - TAMANO_SPRITE) - jugador.rect.y;
+            float ddx = targetX - en->rect.x;
+            float ddy = targetY - en->rect.y;
             float dist = sqrtf(ddx*ddx + ddy*ddy);
             if (dist > 1.0f) {
-                en->rect.x += (ddx / dist) * 4.5f;
-                en->rect.y += (ddy / dist) * 4.5f;
+                // Velocidad segun nivel: 3→lento, 4→medio, 5→rapido
+                float vel = (nivel >= 5) ? 4.5f
+                          : (nivel == 4) ? 3.2f
+                                         : 2.2f;
+                en->rect.x += (ddx / dist) * vel;
+                en->rect.y += (ddy / dist) * vel;
             }
             break;
         }

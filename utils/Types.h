@@ -42,6 +42,8 @@ struct Enemigo {
     int         vida;
     float       anguloZigzag;
     float       timerBomba;
+    bool        apuntaAlJugador;       // true si fue generado apuntando al jugador
+    bool        esquiveCercanoContado; // evita contar el mismo esquive dos veces
 };
 
 struct Machete {

@@ -11,13 +11,14 @@ void spawnPilares(Juego* juego) {
     juego->pilaresActivos = 0;
     int intentos = 0;
     // Margen del 8% de cada borde
-    const int marginX = (int)(ANCHO_VENTANA * 0.08f);
-    const int marginY = (int)(ALTO_VENTANA  * 0.08f);
+    const int W = VW(juego), H = VH(juego);
+    const int marginX = (int)(W * 0.08f);
+    const int marginY = (int)(H * 0.08f);
     for (int p = 0; p < MAX_PILARES; p++) {
         bool posOk = false; float px = 0, py = 0;
         while (!posOk && intentos < 100) {
-            px = (float)(marginX + rand() % (ANCHO_VENTANA - marginX * 2));
-            py = (float)(marginY + rand() % (ALTO_VENTANA  - marginY * 2));
+            px = (float)(marginX + rand() % (W - marginX * 2));
+            py = (float)(marginY + rand() % (H - marginY * 2));
             float bossX = VW(juego) * 0.475f;
             float bossY = VH(juego) * 0.475f;
             float ddx = px - bossX;
@@ -67,11 +68,12 @@ void inicializarBoss(Juego* juego) {
 }
 
 void actualizarBoss(Juego* juego) {
-    if (juego->estadoBoss == BOSS_INACTIVO) {
-        if (!juego->bossSpawneado) { inicializarBoss(juego); juego->bossSpawneado = true; }
-        return;
+    // Spawn unico del boss al entrar al nivel 5
+    if (!juego->bossSpawneado) {
+        inicializarBoss(juego);
+        juego->bossSpawneado = true;
     }
-    if (juego->estadoBoss == BOSS_MUERTO) return;
+    if (juego->estadoBoss == BOSS_INACTIVO || juego->estadoBoss == BOSS_MUERTO) return;
     for (int p = 0; p < MAX_PILARES; p++)
         if (juego->pilares[p].activo) juego->pilares[p].pulsoTimer += 1.0f;
     Uint64 cadencia = (juego->estadoBoss == BOSS_ENFURECIDO) ? BOSS_CADENCIA_RABIA : BOSS_CADENCIA_NORMAL;

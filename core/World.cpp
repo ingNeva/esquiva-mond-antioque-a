@@ -6,7 +6,7 @@
 #include "../entities/Enemy.h"
 #include "../entities/Boss.h"
 #include "../entities/Llave.h"
-
+#include <cmath>
 // ============================================
 // Hitbox reducida del jugador
 // ============================================
@@ -48,7 +48,9 @@ void mundoActualizar(Juego* juego) {
     // ── Spawn de enemigo extra al subir de nivel ──
     if (juego->nivelActual > juego->ultimoNivelDificultad
         && juego->enemigosActivos < MAX_ENEMIGOS) {
-        generarEnemigo(&juego->enemigos[juego->enemigosActivos], juego->nivelActual);
+        // En niveles 1-3 el nuevo enemigo apunta directo al jugador
+        generarEnemigoConJugador(&juego->enemigos[juego->enemigosActivos],
+            juego->nivelActual, &juego->jugador);
         juego->enemigosActivos++;
         juego->ultimoNivelDificultad = juego->nivelActual;
     }
@@ -69,8 +71,38 @@ void mundoActualizar(Juego* juego) {
         const float screenH = (float)VH(juego);
         if (en->rect.x < -80 || en->rect.x > screenW + 20 ||
             en->rect.y < -80 || en->rect.y > screenH + 20) {
+            // Calcular si pasó cerca del jugador (esquive cercano)
+            float ecx = en->rect.x + en->rect.w * 0.5f;
+            float ecy = en->rect.y + en->rect.h * 0.5f;
+            float pcx = juego->jugador.rect.x + juego->jugador.rect.w * 0.5f;
+            float pcy = juego->jugador.rect.y + juego->jugador.rect.h * 0.5f;
+            // Usamos la posicion mas cercana que tuvo al cruzar (approx: borde)
+            // Si venia apuntando al jugador y salio cerca → esquive activo
+            if (en->apuntaAlJugador) {
+                // Distancia minima estimada al cruzar el borde opuesto
+                float dx = ecx - pcx, dy = ecy - pcy;
+                float dist = sqrtf(dx*dx + dy*dy);
+                if (dist < 180.0f) {
+                    mundoOnEsquiveCercano(juego, en);
+                }
+            }
             mundoOnEnemigoEsquivado(juego, i);
             continue;
+        }
+
+        // Deteccion de paso cercano mientras aun esta en pantalla
+        {
+            float ecx = en->rect.x + en->rect.w * 0.5f;
+            float ecy = en->rect.y + en->rect.h * 0.5f;
+            float pcx = juego->jugador.rect.x + juego->jugador.rect.w * 0.5f;
+            float pcy = juego->jugador.rect.y + juego->jugador.rect.h * 0.5f;
+            float dx = ecx - pcx, dy = ecy - pcy;
+            float dist = sqrtf(dx*dx + dy*dy);
+            // Si apuntaba al jugador, paso muy cerca y aun no fue contado
+            if (en->apuntaAlJugador && dist < 55.0f && !en->esquiveCercanoContado) {
+                en->esquiveCercanoContado = true;
+                mundoOnEsquiveCercano(juego, en);
+            }
         }
 
         // Colision con jugador -> game over
@@ -127,15 +159,14 @@ void mundoOnEnemigoMuerto(Juego* juego, int idx, float x, float y) {
     Enemigo* en = &juego->enemigos[idx];
     int pts;
     switch (en->tipo) {
-        case ENEMIGO_TANQUE:     pts = PTS_MATAR_TANQUE; break;
+        case ENEMIGO_ESPEJO:     pts = 10;               break;  // reemplaza al tanque
         case ENEMIGO_BOMBARDERO: pts = 8;                break;
-        case ENEMIGO_ESPEJO:     pts = 8;                break;
         case ENEMIGO_ZIGZAG:     pts = 6;                break;
         case ENEMIGO_RAPIDO:     pts = 4;                break;
         default:                 pts = PTS_MATAR_NORMAL; break;
     }
     agregarPuntos(juego, pts, x, y);
-    generarEnemigo(en, juego->nivelActual);
+    generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
 }
 
 void mundoOnPilarDestruido(Juego* juego, int indicePilar) {
@@ -164,15 +195,14 @@ void mundoOnEnemigoEsquivado(Juego* juego, int idx) {
     Enemigo* en = &juego->enemigos[idx];
     int pts;
     switch (en->tipo) {
-        case ENEMIGO_TANQUE:     pts = 8; break;
-        case ENEMIGO_BOMBARDERO: pts = 6; break;
         case ENEMIGO_ESPEJO:     pts = 8; break;
+        case ENEMIGO_BOMBARDERO: pts = 6; break;
         case ENEMIGO_ZIGZAG:     pts = 5; break;
         case ENEMIGO_RAPIDO:     pts = 4; break;
         default:                 pts = PTS_ESQUIVAR_NORMAL; break;
     }
     agregarPuntos(juego, pts, en->rect.x + en->rect.w / 2.0f, en->rect.y);
-    generarEnemigo(en, juego->nivelActual);
+    generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
 }
 
 void mundoOnColisionJugador(Juego* juego) {

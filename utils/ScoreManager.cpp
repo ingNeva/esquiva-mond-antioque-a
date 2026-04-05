@@ -107,3 +107,31 @@ void actualizarFloatingTexts(Juego* juego) {
         if (juego->floatingTexts[i].timer <= 0) juego->floatingTexts[i].activo = false;
     }
 }
+// ============================================
+// Esquive cercano — bonus por esquivar activamente
+// ============================================
+void mundoOnEsquiveCercano(Juego* juego, Enemigo* en) {
+    // Solo dar bonus si el jugador se movio recientemente
+    if (!juego->jugador.enMovimiento) return;
+
+    int pts = 5;  // bonus fijo por esquive cercano
+    float fx = en->rect.x + en->rect.w * 0.5f;
+    float fy = en->rect.y + en->rect.h * 0.5f;
+
+    // Floating text especial color cyan — inline para no depender de ScoreManager
+    for (int ft = 0; ft < MAX_FLOATING_TEXT; ft++) {
+        if (!juego->floatingTexts[ft].activo) {
+            juego->floatingTexts[ft].activo = true;
+            juego->floatingTexts[ft].x      = fx;
+            juego->floatingTexts[ft].y      = fy;
+            juego->floatingTexts[ft].valor  = pts;
+            juego->floatingTexts[ft].timer  = FLOATING_TEXT_DURACION;
+            juego->floatingTexts[ft].colorR = 0.2f;  // cyan
+            juego->floatingTexts[ft].colorG = 0.9f;
+            juego->floatingTexts[ft].colorB = 1.0f;
+            break;
+        }
+    }
+    juego->puntuacion    += pts;
+    juego->puntosEnNivel += pts;
+}
