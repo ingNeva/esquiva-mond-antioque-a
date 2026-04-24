@@ -7,6 +7,7 @@
 #include "../entities/Boss.h"
 #include "../entities/Llave.h"
 #include <cmath>
+#include <cstdlib>
 // ============================================
 // Hitbox reducida del jugador
 // ============================================
@@ -37,6 +38,140 @@ bool verificarColision(SDL_FRect* a, SDL_FRect* b) {
 }
 
 // ============================================
+// Mecánicas especiales — inicialización
+// Llamar desde reiniciarJuego() al cambiar de nivel
+// ============================================
+void mundoIniciarMecanicasNivel(Juego* juego) {
+    const float W = (float)VW(juego);
+    const float H = (float)VH(juego);
+    const float escX = W / 1920.0f;
+    const float escY = H / 1080.0f;
+    const float zW   = ZONA_RIESGO_W * escX;
+    const float zH   = ZONA_RIESGO_H * escY;
+
+    // — Limpiar estado de mecánicas anteriores —
+    juego->zonasRiesgoCount  = 0;
+    juego->nieblaActiva      = false;
+    juego->nieblaSiguiente   = 0;
+    juego->ondaActiva        = false;
+    juego->ondaSiguiente     = 0;
+    juego->ondaRadio         = 0.0f;
+    juego->jugadorEmpujonX   = 0.0f;
+    juego->jugadorEmpujonY   = 0.0f;
+    juego->jugadorEmpujonFin = 0;
+
+    if (juego->nivelActual == 2) {
+        // Tres zonas fijas: esquina superior-izquierda, centro-derecha, inferior-centro
+        juego->zonasRiesgoCount = ZONA_RIESGO_COUNT;
+        juego->zonasRiesgo[0] = { W * 0.05f,  H * 0.08f,  zW, zH };
+        juego->zonasRiesgo[1] = { W * 0.72f,  H * 0.38f,  zW, zH };
+        juego->zonasRiesgo[2] = { W * 0.38f,  H * 0.74f,  zW, zH };
+    }
+    else if (juego->nivelActual == 3) {
+        // Primera niebla a los 4 segundos de entrar al nivel
+        juego->nieblaSiguiente = SDL_GetTicks() + 4000;
+    }
+    else if (juego->nivelActual == 4) {
+        // Primera onda a los 3 segundos de entrar al nivel
+        juego->ondaSiguiente = SDL_GetTicks() + 3000;
+    }
+}
+
+// ============================================
+// Mecánicas especiales — actualización por tick
+// Llamar desde mundoActualizar() antes del loop de enemigos
+// ============================================
+static void actualizarMecanicasNivel(Juego* juego) {
+    const Uint64 ahora = SDL_GetTicks();
+    const float  W     = (float)VW(juego);
+    const float  H     = (float)VH(juego);
+
+    // ── Nivel 2: colisión con zonas de riesgo ───────────────────────
+    if (juego->nivelActual == 2 && juego->zonasRiesgoCount > 0) {
+        SDL_FRect hj = {
+            juego->jugador.rect.x + juego->jugador.rect.w * 0.30f,
+            juego->jugador.rect.y + juego->jugador.rect.h * 0.35f,
+            juego->jugador.rect.w * 0.40f,
+            juego->jugador.rect.h * 0.60f
+        };
+        for (int z = 0; z < juego->zonasRiesgoCount; z++) {
+            if (SDL_HasRectIntersectionFloat(&hj, &juego->zonasRiesgo[z])) {
+                mundoOnColisionJugador(juego);
+                return;
+            }
+        }
+    }
+
+    // ── Nivel 3: ciclo de niebla ─────────────────────────────────────
+    if (juego->nivelActual == 3) {
+        if (!juego->nieblaActiva && ahora >= juego->nieblaSiguiente) {
+            juego->nieblaActiva    = true;
+            juego->nieblaFin       = ahora + NIEBLA_DURACION_MS;
+        }
+        if (juego->nieblaActiva && ahora >= juego->nieblaFin) {
+            juego->nieblaActiva    = false;
+            juego->nieblaSiguiente = ahora + NIEBLA_INTERVALO_MS;
+        }
+    }
+
+    // ── Nivel 4: onda expansiva + empujón ───────────────────────────
+    if (juego->nivelActual == 4) {
+        // Disparar nueva onda
+        if (!juego->ondaActiva && ahora >= juego->ondaSiguiente) {
+            juego->ondaActiva  = true;
+            juego->ondaInicio  = ahora;
+            juego->ondaRadio   = 0.0f;
+        }
+        // Actualizar onda activa
+        if (juego->ondaActiva) {
+            juego->ondaRadio += ONDA_VELOCIDAD;
+
+            // Detectar si la onda toca al jugador
+            float pcx = juego->jugador.rect.x + juego->jugador.rect.w * 0.5f;
+            float pcy = juego->jugador.rect.y + juego->jugador.rect.h * 0.5f;
+            float cx  = W * 0.5f;
+            float cy  = H * 0.5f;
+            float dx  = pcx - cx;
+            float dy  = pcy - cy;
+            float dist = sqrtf(dx*dx + dy*dy);
+
+            // El jugador es golpeado si está dentro del grosor de la onda
+            if (dist > 1.0f &&
+                dist >= juego->ondaRadio - ONDA_GROSOR * 2.0f &&
+                dist <= juego->ondaRadio + ONDA_GROSOR * 2.0f &&
+                ahora >= juego->jugadorEmpujonFin)  // no acumular empujones
+            {
+                // Empujar radialmente hacia afuera desde el centro
+                float nx = dx / dist;
+                float ny = dy / dist;
+                juego->jugadorEmpujonX   = nx * ONDA_EMPUJON_FUERZA;
+                juego->jugadorEmpujonY   = ny * ONDA_EMPUJON_FUERZA;
+                juego->jugadorEmpujonFin = ahora + ONDA_EMPUJON_DURACION;
+            }
+
+            // Onda llegó al borde → resetear
+            if (juego->ondaRadio >= ONDA_RADIO_MAX) {
+                juego->ondaActiva    = false;
+                juego->ondaSiguiente = ahora + ONDA_INTERVALO_MS;
+            }
+        }
+
+        // Aplicar empujón gradual al jugador
+        if (ahora < juego->jugadorEmpujonFin) {
+            float progreso   = 1.0f - (float)(juego->jugadorEmpujonFin - ahora)
+                                    / (float)ONDA_EMPUJON_DURACION;
+            float factor     = 1.0f - progreso;  // desacelera con el tiempo
+            float deltaX     = juego->jugadorEmpujonX * factor * 0.016f;
+            float deltaY     = juego->jugadorEmpujonY * factor * 0.016f;
+            juego->jugador.rect.x = SDL_clamp(
+                juego->jugador.rect.x + deltaX, 0.0f, W - juego->jugador.rect.w);
+            juego->jugador.rect.y = SDL_clamp(
+                juego->jugador.rect.y + deltaY, 0.0f, H - juego->jugador.rect.h);
+        }
+    }
+}
+
+// ============================================
 // Ciclo de actualizacion principal
 // ============================================
 void mundoActualizar(Juego* juego) {
@@ -44,6 +179,10 @@ void mundoActualizar(Juego* juego) {
 
     // Hitbox reducida — declarada una sola vez al inicio
     SDL_FRect hj = hitboxJugador(&juego->jugador);
+
+    // ── Mecánicas especiales por nivel ───────────────────────────────
+    actualizarMecanicasNivel(juego);
+    if (!juego->ejecutando) return;  // muerte por zona de riesgo
 
     // ── Spawn de enemigo extra al subir de nivel ──
     if (juego->nivelActual > juego->ultimoNivelDificultad

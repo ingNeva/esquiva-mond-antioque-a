@@ -174,4 +174,28 @@ struct Juego {
     SDL_Texture* texPlayerLeft  = nullptr;
     SDL_Texture* texPlayerDown  = nullptr;
     SDL_Texture* texPlayerUp    = nullptr;
+
+    // =============================================
+    // Nivel 2 — Zonas de daño (suelo peligroso)
+    // =============================================
+    SDL_FRect zonasRiesgo[3];
+    int       zonasRiesgoCount = 0;
+
+    // =============================================
+    // Nivel 3 — Niebla periódica
+    // =============================================
+    Uint64 nieblaSiguiente  = 0;  // ticks cuando empieza la próxima niebla
+    Uint64 nieblaFin        = 0;  // ticks cuando termina la niebla activa
+    bool   nieblaActiva     = false;
+
+    // =============================================
+    // Nivel 4 — Onda expansiva (empujón al jugador)
+    // =============================================
+    Uint64 ondaSiguiente     = 0;  // ticks cuando sale la próxima onda
+    Uint64 ondaInicio        = 0;  // ticks de inicio de la onda actual
+    bool   ondaActiva        = false;
+    float  ondaRadio         = 0.0f;
+    float  jugadorEmpujonX   = 0.0f;
+    float  jugadorEmpujonY   = 0.0f;
+    Uint64 jugadorEmpujonFin = 0;
 };

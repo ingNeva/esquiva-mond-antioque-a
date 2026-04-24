@@ -1,5 +1,6 @@
 #include "GameScene.h"
 #include "../core/Game.h"
+#include "../core/World.h"
 #include "../entities/Player.h"
 #include "../entities/Enemy.h"
 #include "../entities/Machete.h"
@@ -138,6 +139,80 @@ void dibujarJuego(Juego* juego) {
     renderizarLlave(juego);
     renderizarHUDCombo(juego);
     renderizarFloatingTexts(juego);
+
+    // ── Nivel 2: zonas de riesgo ─────────────────────────────────────
+    if (juego->nivelActual == 2 && juego->zonasRiesgoCount > 0) {
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+        for (int z = 0; z < juego->zonasRiesgoCount; z++) {
+            // Relleno rojo semitransparente
+            SDL_SetRenderDrawColor(juego->renderer, 220, 30, 30, 80);
+            SDL_RenderFillRect(juego->renderer, &juego->zonasRiesgo[z]);
+            // Borde rojo sólido + efecto de pulso con el tiempo
+            float pulso = 0.6f + 0.4f * sinf((float)SDL_GetTicks() * 0.004f);
+            SDL_SetRenderDrawColor(juego->renderer,
+                255, (Uint8)(20 * pulso), (Uint8)(20 * pulso), 200);
+            SDL_RenderRect(juego->renderer, &juego->zonasRiesgo[z]);
+            // Línea interior para dar sensación de profundidad
+            SDL_FRect inner = {
+                juego->zonasRiesgo[z].x + 3,
+                juego->zonasRiesgo[z].y + 3,
+                juego->zonasRiesgo[z].w - 6,
+                juego->zonasRiesgo[z].h - 6
+            };
+            SDL_SetRenderDrawColor(juego->renderer, 255, 80, 80, 60);
+            SDL_RenderRect(juego->renderer, &inner);
+        }
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+    }
+
+    // ── Nivel 3: overlay de niebla ───────────────────────────────────
+    if (juego->nivelActual == 3 && juego->nieblaActiva) {
+        Uint64 ahora   = SDL_GetTicks();
+        float  alpha   = 0.0f;
+        // Fade in: primeros 600ms
+        float  tiempoDesdeInicio = (float)(ahora - (juego->nieblaFin - NIEBLA_DURACION_MS));
+        float  tiempoParaFin     = (float)(juego->nieblaFin - ahora);
+        if (tiempoDesdeInicio < 600.0f)
+            alpha = (tiempoDesdeInicio / 600.0f);
+        // Fade out: últimos 600ms
+        else if (tiempoParaFin < 600.0f)
+            alpha = (tiempoParaFin / 600.0f);
+        else
+            alpha = 1.0f;
+        Uint8 a = (Uint8)(alpha * NIEBLA_ALPHA_MAX);
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(juego->renderer, 10, 10, 20, a);
+        SDL_FRect pantalla = { 0, 0, (float)VW(juego), (float)VH(juego) };
+        SDL_RenderFillRect(juego->renderer, &pantalla);
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+    }
+
+    // ── Nivel 4: onda expansiva ──────────────────────────────────────
+    if (juego->nivelActual == 4 && juego->ondaActiva) {
+        float cx = VW(juego) * 0.5f;
+        float cy = VH(juego) * 0.5f;
+        float r  = juego->ondaRadio;
+        // Dibuja el anillo como ~60 puntos en circunferencia
+        float pulso = 0.6f + 0.4f * sinf((float)SDL_GetTicks() * 0.02f);
+        Uint8 alpha = (Uint8)(180 * (1.0f - r / ONDA_RADIO_MAX));  // desvanece al expandirse
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_BLEND);
+        // Anillo exterior — amarillo eléctrico
+        SDL_SetRenderDrawColor(juego->renderer,
+            255, (Uint8)(200 * pulso), 0, alpha);
+        const int PASOS = 80;
+        for (int i = 0; i < PASOS; i++) {
+            float ang0 = (float)i       / PASOS * 2.0f * (float)M_PI;
+            float ang1 = (float)(i + 1) / PASOS * 2.0f * (float)M_PI;
+            for (float dr = -ONDA_GROSOR * 0.5f; dr <= ONDA_GROSOR * 0.5f; dr += 1.5f) {
+                float x0 = cx + cosf(ang0) * (r + dr);
+                float y0 = cy + sinf(ang0) * (r + dr);
+                float x1 = cx + cosf(ang1) * (r + dr);
+                float y1 = cy + sinf(ang1) * (r + dr);
+                SDL_RenderLine(juego->renderer, x0, y0, x1, y1);
+            }
+        }
+        SDL_SetRenderDrawBlendMode(juego->renderer, SDL_BLENDMODE_NONE);
+    }
 }
 
 void renderizar(Juego* juego) {

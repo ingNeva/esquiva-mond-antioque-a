@@ -91,6 +91,28 @@
 #define PTS_TROFEO_BONUS          200
 
 // ============================================
+// Mecánicas especiales por nivel
+// ============================================
+
+// Nivel 2 — Zonas de riesgo
+#define ZONA_RIESGO_COUNT       3      // cuántas zonas hay en nivel 2
+#define ZONA_RIESGO_W           180    // ancho de cada zona (px en 1080p)
+#define ZONA_RIESGO_H           140    // alto de cada zona
+
+// Nivel 3 — Niebla periódica
+#define NIEBLA_INTERVALO_MS     5000   // cada cuánto aparece (ms)
+#define NIEBLA_DURACION_MS      2500   // cuánto dura la niebla
+#define NIEBLA_ALPHA_MAX        200    // opacidad máxima (0-255)
+
+// Nivel 4 — Onda expansiva
+#define ONDA_INTERVALO_MS       4000   // cada cuánto sale una onda (ms)
+#define ONDA_VELOCIDAD          6.0f   // px por frame que crece el radio
+#define ONDA_RADIO_MAX          500.0f // radio en que desaparece
+#define ONDA_GROSOR             8.0f   // grosor visual del anillo
+#define ONDA_EMPUJON_FUERZA     180.0f // px desplazados por el empujón
+#define ONDA_EMPUJON_DURACION   220    // ms que dura el empujón
+
+// ============================================
 // Resoluciones disponibles
 // ============================================
 struct ResolucionDisponible {
