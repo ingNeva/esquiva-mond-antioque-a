@@ -3,3 +3,6 @@ EsquivarBotellas.exe
 ejecutable/
 log.txt
 build/
+build_linux/
+copy_dlls.ps1
+windows.zip
