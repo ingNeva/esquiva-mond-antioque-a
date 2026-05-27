@@ -10,8 +10,9 @@ void manejarEventos(Juego* juego) {
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_EVENT_QUIT) { juego->ejecutando = false; return; }
         if (e.type == SDL_EVENT_KEY_DOWN) {
-            if (e.key.key == SDLK_SPACE && juego->macheteEquipado) usarMachete(juego);
-            if (e.key.key == SDLK_ESCAPE) juego->estado = ESTADO_PAUSADO;
+            SDL_Scancode sc = e.key.scancode;
+            if (sc == juego->keyConfig.atacar && juego->macheteEquipado) usarMachete(juego);
+            if (sc == juego->keyConfig.pausa) juego->estado = ESTADO_PAUSADO;
             if (e.key.key == SDLK_M) toggleMusicaMute(juego);
             if (e.key.key == SDLK_EQUALS || e.key.key == SDLK_PLUS) ajustarVolumen(juego, 16);
             if (e.key.key == SDLK_MINUS) ajustarVolumen(juego, -16);
@@ -31,27 +32,27 @@ void manejarEventos(Juego* juego) {
 // ============================================
 // Actualizacion de posicion del jugador
 // ============================================
-void actualizarJugador(Jugador* jugador, SDL_Gamepad* gamepad) {
+void actualizarJugador(Jugador* jugador, SDL_Gamepad* gamepad, const KeyConfig& keys) {
     const bool* teclas = SDL_GetKeyboardState(NULL);
     bool mov = false;
 
     // Teclado
-    if (teclas[SDL_SCANCODE_W]) {
+    if (teclas[keys.moverArriba]) {
         jugador->rect.y -= (float)jugador->velocidad;
         jugador->direccion = DIR_ARRIBA;
         mov = true;
     }
-    if (teclas[SDL_SCANCODE_S]) {
+    if (teclas[keys.moverAbajo]) {
         jugador->rect.y += (float)jugador->velocidad;
         jugador->direccion = DIR_ABAJO;
         mov = true;
     }
-    if (teclas[SDL_SCANCODE_A]) {
+    if (teclas[keys.moverIzquierda]) {
         jugador->rect.x -= (float)jugador->velocidad;
         jugador->direccion = DIR_IZQUIERDA;
         mov = true;
     }
-    if (teclas[SDL_SCANCODE_D]) {
+    if (teclas[keys.moverDerecha]) {
         jugador->rect.x += (float)jugador->velocidad;
         jugador->direccion = DIR_DERECHA;
         mov = true;

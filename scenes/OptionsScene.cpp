@@ -47,8 +47,8 @@ void renderizarOpciones(Juego* juego) {
     renderizarTextoPequeno(juego, "AUDIO",    labelX, inicioY - (int)(H * 0.04f), seccion);
     renderizarTextoPequeno(juego, "PANTALLA", labelX, inicioY + 2 * paso - (int)(H * 0.04f), seccion);
 
-    const char* nombres[] = {"Musica", "Volumen", "Resolucion", "Pantalla completa"};
-    const int totalOpciones = 4;
+    const char* nombres[] = {"Musica", "Volumen", "Resolucion", "Pantalla completa", "Teclas de juego"};
+    const int totalOpciones = 5;
 
     for (int i = 0; i < totalOpciones; i++) {
         bool seleccionada = (juego->opcionOpcionesSeleccionada == i);
@@ -73,6 +73,9 @@ void renderizarOpciones(Juego* juego) {
             case 3:
                 SDL_snprintf(valor, sizeof(valor), juego->pantallaCompleta ? "[ ON ]" : "[ OFF ]");
                 colorValor = juego->pantallaCompleta ? verde : apagado; break;
+            case 4:
+                SDL_snprintf(valor, sizeof(valor), "[ Entrar ]");
+                colorValor = amarillo; break;
         }
         renderizarTexto(juego, valor, valorX, inicioY + i * paso, colorValor);
 
@@ -106,7 +109,7 @@ void renderizarOpciones(Juego* juego) {
     renderizarTextoPequenoC(juego,
         "Arriba/Abajo: navegar     Izq/Der o +/-: cambiar valor     F: fullscreen",
         sepY + (int)(H * 0.025f), gris);
-    renderizarTextoPequenoC(juego, "ESC / Circulo: volver al menu",
+    renderizarTextoPequenoC(juego, "ESC / Circulo: volver al menu     Enter en Teclas: configurar",
         sepY + (int)(H * 0.06f), gris);
 
     if (juego->pantallaCompleta)
@@ -138,6 +141,7 @@ void renderizarOpciones(Juego* juego) {
                             if (!juego->pantallaCompleta) aplicarResolucion(juego);
                             break;
                         case 3: togglePantallaCompleta(juego); break;
+                        case 4: juego->estado = ESTADO_TECLAS; break;
                     }
                     guardarConfig(juego);
                     break;
@@ -151,6 +155,7 @@ void renderizarOpciones(Juego* juego) {
                             if (!juego->pantallaCompleta) aplicarResolucion(juego);
                             break;
                         case 3: togglePantallaCompleta(juego); break;
+                        case 4: juego->estado = ESTADO_TECLAS; break;
                     }
                     guardarConfig(juego);
                     break;
@@ -158,6 +163,7 @@ void renderizarOpciones(Juego* juego) {
                     switch (juego->opcionOpcionesSeleccionada) {
                         case 0: toggleMusicaMute(juego);       break;
                         case 3: togglePantallaCompleta(juego); break;
+                        case 4: juego->estado = ESTADO_TECLAS; break;
                         default: break;
                     }
                     guardarConfig(juego);
@@ -187,6 +193,7 @@ void renderizarOpciones(Juego* juego) {
                             if (!juego->pantallaCompleta) aplicarResolucion(juego);
                             break;
                         case 3: togglePantallaCompleta(juego); break;
+                        case 4: juego->estado = ESTADO_TECLAS; break;
                     }
                     guardarConfig(juego);
                     break;
@@ -200,8 +207,18 @@ void renderizarOpciones(Juego* juego) {
                             if (!juego->pantallaCompleta) aplicarResolucion(juego);
                             break;
                         case 3: togglePantallaCompleta(juego); break;
+                        case 4: juego->estado = ESTADO_TECLAS; break;
                     }
                     guardarConfig(juego);
+                    break;
+                case SDL_GAMEPAD_BUTTON_SOUTH:
+                    if (juego->opcionOpcionesSeleccionada == 4)
+                        juego->estado = ESTADO_TECLAS;
+                    else if (juego->opcionOpcionesSeleccionada == 0) {
+                        toggleMusicaMute(juego); guardarConfig(juego);
+                    } else if (juego->opcionOpcionesSeleccionada == 3) {
+                        togglePantallaCompleta(juego); guardarConfig(juego);
+                    }
                     break;
                 case SDL_GAMEPAD_BUTTON_EAST:
                     juego->estado = ESTADO_MENU; break;

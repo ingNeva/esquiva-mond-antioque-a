@@ -27,6 +27,7 @@
 #include "scenes/GameOverScene.h"
 #include "scenes/OptionsScene.h"
 #include "scenes/LevelSelectScene.h"
+#include "scenes/KeybindScene.h"
 #include "utils/SaveManager.h"
 
 // ============================================
@@ -121,7 +122,7 @@ int main() {
 
             case ESTADO_JUGANDO:
                 manejarEventos(&juego);
-                actualizarJugador(&juego.jugador, juego.gamepad);
+                actualizarJugador(&juego.jugador, juego.gamepad, juego.keyConfig);
                 actualizarAnimacionJugador(&juego.jugador);
                 actualizarAnimacionAtaque(&juego);
                 actualizarPosicionMacheteEquipado(&juego);
@@ -169,6 +170,10 @@ int main() {
 
             case ESTADO_OPCIONES:
                 renderizarOpciones(&juego);
+                break;
+
+            case ESTADO_TECLAS:
+                renderizarTeclas(&juego);
                 break;
 
             case ESTADO_SELECCION_NIVEL:

@@ -30,6 +30,7 @@ set(SOURCES
     scenes/GameOverScene.cpp
     scenes/OptionsScene.cpp
     scenes/LevelSelectScene.cpp
+    scenes/KeybindScene.cpp
 )
 
 # ============================================

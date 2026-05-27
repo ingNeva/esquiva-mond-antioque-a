@@ -158,7 +158,8 @@ enum EstadoJuego {
     ESTADO_VICTORIA,
     ESTADO_OPCIONES,
     ESTADO_INTRO,             // cinemática de entrada al juego
-    ESTADO_SELECCION_NIVEL    // menú de selección de nivel con bloqueos
+    ESTADO_SELECCION_NIVEL,   // menú de selección de nivel con bloqueos
+    ESTADO_TECLAS             // remapeo de teclas
 };
 
 enum TipoEnemigo {

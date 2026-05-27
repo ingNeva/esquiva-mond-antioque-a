@@ -85,6 +85,18 @@ struct TransicionNivel {
 };
 
 // ============================================
+// Configuracion de teclas reasignables
+// ============================================
+struct KeyConfig {
+    SDL_Scancode moverArriba   = SDL_SCANCODE_W;
+    SDL_Scancode moverAbajo    = SDL_SCANCODE_S;
+    SDL_Scancode moverIzquierda= SDL_SCANCODE_A;
+    SDL_Scancode moverDerecha  = SDL_SCANCODE_D;
+    SDL_Scancode atacar        = SDL_SCANCODE_SPACE;
+    SDL_Scancode pausa         = SDL_SCANCODE_ESCAPE;
+};
+
+// ============================================
 // Estructura principal del juego
 // ============================================
 struct Juego {
@@ -158,6 +170,9 @@ struct Juego {
     Llave        llave;
 
     Uint64       inicioCuentaRegresiva;
+
+    // Teclas reasignables
+    KeyConfig keyConfig;
 
     // Opciones de pantalla
     int  opcionOpcionesSeleccionada;

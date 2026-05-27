@@ -19,8 +19,17 @@ struct ConfigGuardada {
     bool pantallaCompleta;
     bool musicaActiva;
     int  volumenMusica;
+    // Keybindings (versión 2)
+    SDL_Scancode teclaMoverArriba;
+    SDL_Scancode teclaMoverAbajo;
+    SDL_Scancode teclaMoverIzquierda;
+    SDL_Scancode teclaMoverDerecha;
+    SDL_Scancode teclaAtacar;
+    SDL_Scancode teclaPausa;
+    int  version; // 1 = sin teclas, 2 = con teclas
 };
-static const int CONFIG_MAGIC = 0xEB0C;
+static const int CONFIG_MAGIC   = 0xEB0C;
+static const int CONFIG_VERSION = 2;
 
 void guardarConfig(const Juego* juego) {
     crearDirectorioSaves();
@@ -28,15 +37,25 @@ void guardarConfig(const Juego* juego) {
     if (!f) return;
     ConfigGuardada cfg;
     cfg.magic                  = CONFIG_MAGIC;
+    cfg.version                = CONFIG_VERSION;
     cfg.resolucionSeleccionada = juego->resolucionSeleccionada;
     cfg.pantallaCompleta       = juego->pantallaCompleta;
     cfg.musicaActiva           = juego->musicaActiva;
     cfg.volumenMusica          = juego->volumenMusica;
+    cfg.teclaMoverArriba       = juego->keyConfig.moverArriba;
+    cfg.teclaMoverAbajo        = juego->keyConfig.moverAbajo;
+    cfg.teclaMoverIzquierda    = juego->keyConfig.moverIzquierda;
+    cfg.teclaMoverDerecha      = juego->keyConfig.moverDerecha;
+    cfg.teclaAtacar            = juego->keyConfig.atacar;
+    cfg.teclaPausa             = juego->keyConfig.pausa;
     fwrite(&cfg, sizeof(cfg), 1, f);
     fclose(f);
 }
 
 void cargarConfig(Juego* juego) {
+    // Teclas por defecto siempre (fallback)
+    juego->keyConfig = KeyConfig{};
+
     FILE* f = fopen(RUTA_CONFIG, "rb");
     if (!f) {
         // Primera ejecucion: pantalla completa por defecto
@@ -60,6 +79,16 @@ void cargarConfig(Juego* juego) {
     juego->pantallaCompleta       = cfg.pantallaCompleta;
     juego->musicaActiva           = cfg.musicaActiva;
     juego->volumenMusica          = SDL_clamp(cfg.volumenMusica, 0, 128);
+
+    // Keybindings: solo cargar si el archivo es v2
+    if (cfg.version >= 2) {
+        juego->keyConfig.moverArriba    = cfg.teclaMoverArriba;
+        juego->keyConfig.moverAbajo     = cfg.teclaMoverAbajo;
+        juego->keyConfig.moverIzquierda = cfg.teclaMoverIzquierda;
+        juego->keyConfig.moverDerecha   = cfg.teclaMoverDerecha;
+        juego->keyConfig.atacar         = cfg.teclaAtacar;
+        juego->keyConfig.pausa          = cfg.teclaPausa;
+    }
 }
 
 // ============================================

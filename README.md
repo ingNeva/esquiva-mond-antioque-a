@@ -20,7 +20,6 @@ Muévete, esquiva enemigos, recoge el machete y supera tu récord.
 | Campo | Detalle |
 |-------|---------|
 | **Nombre** | Diego Alexander Neva Patiño |
-| **Repositorio** | https://github.com/ingNeva/esquiva-mond-antioque-a |
 | **Versión SDL** | SDL3 + SDL3_image + SDL3_ttf + SDL3_mixer |
 
 ---

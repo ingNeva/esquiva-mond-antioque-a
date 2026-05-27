@@ -6,4 +6,4 @@
 // Manejo de entrada (teclado + gamepad)
 // ============================================
 void manejarEventos(Juego* juego);
-void actualizarJugador(Jugador* jugador, SDL_Gamepad* gamepad);
+void actualizarJugador(Jugador* jugador, SDL_Gamepad* gamepad, const KeyConfig& keys);
