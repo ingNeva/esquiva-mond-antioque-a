@@ -6,8 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ============================================
 # Salida del ejecutable
 # ============================================
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/linux)
-file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/linux)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/windows)
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/windows)
 
 # ============================================
 # Fuentes
@@ -30,7 +30,6 @@ set(SOURCES
     scenes/GameOverScene.cpp
     scenes/OptionsScene.cpp
     scenes/LevelSelectScene.cpp
-    scenes/KeybindScene.cpp
 )
 
 # ============================================
@@ -39,17 +38,31 @@ set(SOURCES
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # ============================================
-# Dependencias SDL3 via pkg-config
+# Dependencias SDL3 — MSYS2 UCRT64
 # ============================================
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SDL3       REQUIRED IMPORTED_TARGET sdl3)
-pkg_check_modules(SDL3_IMAGE REQUIRED IMPORTED_TARGET sdl3-image)
-pkg_check_modules(SDL3_TTF   REQUIRED IMPORTED_TARGET sdl3-ttf)
-pkg_check_modules(SDL3_MIXER REQUIRED IMPORTED_TARGET sdl3-mixer)
+set(SDL3_ROOT "C:/msys64/ucrt64")
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${SDL3_ROOT}/include
+    ${SDL3_ROOT}/include/SDL3
+)
+
+target_link_directories(${PROJECT_NAME} PRIVATE
+    ${SDL3_ROOT}/lib
+)
 
 target_link_libraries(${PROJECT_NAME}
-    PkgConfig::SDL3
-    PkgConfig::SDL3_IMAGE
-    PkgConfig::SDL3_TTF
-    PkgConfig::SDL3_MIXER
+    SDL3
+    SDL3_image
+    SDL3_ttf
+    SDL3_mixer
 )
+
+# ============================================
+# Sin consola negra en Release
+# ============================================
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+endif()

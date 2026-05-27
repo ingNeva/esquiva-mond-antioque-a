@@ -6,8 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ============================================
 # Salida del ejecutable
 # ============================================
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/linux)
-file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/linux)
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/linux)
+    file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/ejecutable/linux)
+else()
+    file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+endif()
 
 # ============================================
 # Fuentes
