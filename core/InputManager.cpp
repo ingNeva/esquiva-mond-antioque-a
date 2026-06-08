@@ -1,6 +1,7 @@
 #include "InputManager.h"
 #include "AudioManager.h"
 #include "../entities/Machete.h"
+#include "../entities/Chancla.h"
 
 // ============================================
 // Eventos durante la partida
@@ -12,6 +13,7 @@ void manejarEventos(Juego* juego) {
         if (e.type == SDL_EVENT_KEY_DOWN) {
             SDL_Scancode sc = e.key.scancode;
             if (sc == juego->keyConfig.atacar && juego->macheteEquipado) usarMachete(juego);
+            if (e.key.key == SDLK_C) lanzarChancla(juego);
             if (sc == juego->keyConfig.pausa) juego->estado = ESTADO_PAUSADO;
             if (e.key.key == SDLK_M) toggleMusicaMute(juego);
             if (e.key.key == SDLK_EQUALS || e.key.key == SDLK_PLUS) ajustarVolumen(juego, 16);
@@ -19,6 +21,7 @@ void manejarEventos(Juego* juego) {
         }
         if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH && juego->macheteEquipado) usarMachete(juego);
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) lanzarChancla(juego);
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_START) juego->estado = ESTADO_PAUSADO;
         }
         if (e.type == SDL_EVENT_GAMEPAD_ADDED && !juego->gamepad)

@@ -4,6 +4,7 @@
 #include "../entities/Player.h"
 #include "../entities/Enemy.h"
 #include "../entities/Machete.h"
+#include "../entities/Chancla.h"
 #include "../scenes/CountdownScene.h"
 
 #include <SDL3_image/SDL_image.h>
@@ -188,6 +189,9 @@ bool cargarTexturas(Juego* juego) {
     juego->texLlave = loadFB("imagenes/llave.png");
     if (!juego->texLlave) juego->texLlave = juego->texEnemigo;
 
+    juego->texChancla = loadFB("imagenes/chancla.png");
+    if (!juego->texChancla) juego->texChancla = juego->texMachete;
+
     if (juego->mixer)
         juego->musicaVictoria = MIX_LoadAudio(juego->mixer, "musica/victoria.wav", false);
 
@@ -340,6 +344,7 @@ void limpiarRecursos(Juego* juego) {
     if (juego->texTrofeo && juego->texTrofeo != juego->texEnemigo) SDL_DestroyTexture(juego->texTrofeo);
     if (juego->texPilar  && juego->texPilar  != juego->texEnemigo) SDL_DestroyTexture(juego->texPilar);
     if (juego->texLlave  && juego->texLlave  != juego->texEnemigo) SDL_DestroyTexture(juego->texLlave);
+    if (juego->texChancla && juego->texChancla != juego->texMachete) SDL_DestroyTexture(juego->texChancla);
     if (juego->musicaVictoria) MIX_DestroyAudio(juego->musicaVictoria);
     for (int i = 0; i < 5; i++) if (juego->texFondos[i]) SDL_DestroyTexture(juego->texFondos[i]);
     if (juego->fuentePequena && juego->fuentePequena != juego->fuente) TTF_CloseFont(juego->fuentePequena);
@@ -374,13 +379,12 @@ void reiniciarJuego(Juego* juego) {
     juego->gameOverReproducido = false;
     juego->transicion = {};
 
-    // El machete y la intro se gestionan dentro de iniciarIntro()
-    // segun juego->nivelActual, no hay que tocarlo aqui.
     juego->macheteEquipado  = false;
     juego->macheteAparecido = false;
     juego->machete.recogido = false;
 
+    inicializarChancla(juego);
+
     // Lanzar la intro cinematica (el personaje caminando)
-    // iniciarIntro() se declara en CountdownScene.h
     iniciarIntro(juego);
 }

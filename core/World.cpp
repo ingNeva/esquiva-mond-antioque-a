@@ -6,6 +6,7 @@
 #include "../entities/Enemy.h"
 #include "../entities/Boss.h"
 #include "../entities/Llave.h"
+#include "../entities/Chancla.h"
 #include <cmath>
 #include <cstdlib>
 // ============================================
@@ -268,6 +269,9 @@ void mundoActualizar(Juego* juego) {
         mundoOnTrofeoRecogido(juego);
         return;
     }
+
+    // ── Chancla (bumerán) ─────────────────────────
+    actualizarChancla(juego);
 
     // ── Llave de nivel ────────────────────────────
     actualizarLlave(juego);

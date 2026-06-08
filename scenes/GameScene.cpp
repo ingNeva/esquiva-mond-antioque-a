@@ -6,6 +6,7 @@
 #include "../entities/Machete.h"
 #include "../entities/Boss.h"
 #include "../entities/Llave.h"
+#include "../entities/Chancla.h"
 #include <cmath>
 
 void dibujarJuego(Juego* juego) {
@@ -136,6 +137,8 @@ void dibujarJuego(Juego* juego) {
 
     mostrarPuntuacionPantalla(juego);
     renderizarBarraCooldown(juego);
+    renderizarBarraCooldownChancla(juego);
+    renderizarChancla(juego);
     renderizarLlave(juego);
     renderizarHUDCombo(juego);
     renderizarFloatingTexts(juego);

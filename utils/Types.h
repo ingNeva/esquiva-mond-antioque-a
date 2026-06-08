@@ -77,6 +77,15 @@ struct Llave {
     int       nivelDestino;
 };
 
+struct Chancla {
+    bool   activa;
+    bool   regresando;
+    float  x, y;
+    float  velX, velY;
+    float  angulo;
+    float  xOrigen, yOrigen;
+    Uint64 ultimoUso;
+};
 struct TransicionNivel {
     bool        activa;
     int         nivelNuevo;
@@ -168,6 +177,9 @@ struct Juego {
 
     SDL_Texture* texLlave;
     Llave        llave;
+
+    SDL_Texture* texChancla = nullptr;
+    Chancla      chancla;
 
     Uint64       inicioCuentaRegresiva;
 

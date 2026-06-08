@@ -3,6 +3,7 @@
 #include "../entities/Player.h"
 #include "../entities/Enemy.h"
 #include "../entities/Machete.h"
+#include "../entities/Chancla.h"
 #include <cmath>
 
 // ============================================
@@ -30,10 +31,10 @@ void iniciarCuentaRegresiva(Juego* juego) {
     for (int f = 0; f < MAX_FLOATING_TEXT; f++) juego->floatingTexts[f].activo = false;
     juego->llave.activa     = false;
     juego->llave.pulsoTimer = 0.0f;
-    // nivelActual lo preserva el llamador (reiniciarJuego / LevelSelectScene)
-    // Solo reseteamos puntosEnNivel y audio
     juego->puntosEnNivel = 0;
     juego->pistaSonando  = PISTA_NINGUNA;
+
+    inicializarChancla(juego);
 
     // Lanzar la intro cinemática (el personaje caminando)
     iniciarIntro(juego);

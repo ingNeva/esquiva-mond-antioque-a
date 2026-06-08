@@ -112,6 +112,13 @@
 #define ONDA_EMPUJON_FUERZA     180.0f // px desplazados por el empujón
 #define ONDA_EMPUJON_DURACION   220    // ms que dura el empujón
 
+// Chancla — arma bumerán
+#define CHANCLA_VELOCIDAD       8.0f
+#define CHANCLA_VEL_ROTACION    12.0f
+#define CHANCLA_MAX_DISTANCIA   350.0f
+#define CHANCLA_RADIO_RECOGIDA  30.0f
+#define CHANCLA_TAMANO          48
+#define COOLDOWN_CHANCLA        3500
 // ============================================
 // Resoluciones disponibles
 // ============================================
