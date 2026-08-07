@@ -1,6 +1,9 @@
 #include "ScoreManager.h"
+#include "../entities/Enemy.h"
 #include <cstdio>
+#include <cstring>
 #include <cmath>
+#include <cstdlib>
 
 #ifdef _WIN32
     #include <direct.h>
@@ -69,6 +72,55 @@ int insertarPuntaje(TablaPuntajes* tabla, const char* nombre, int puntuacion) {
 }
 
 // ============================================
+// Frases colombianas por arma
+// ============================================
+static const char* FRASES_MACHETE[] = {
+    "!Toma, malparido!",
+    "!Eso es pa' que aprenda!",
+    "!Juepucha, que hachazo!",
+    "!No joda mas, mijo!",
+    "!Le doy con todo, parce!",
+    "!Esto es un machete paisa!",
+    "!A la orden, hermano!",
+    "!Que viva el campo!",
+};
+static const int NUM_FRASES_MACHETE = 8;
+
+static const char* FRASES_CHANCLA[] = {
+    "!Chancletazo de mi mama!",
+    "!La chancla no falla, mijo!",
+    "!Pa' que no vuelva, maluco!",
+    "!Ay, venga esa chancleta!",
+    "!Ni el diablo escapa!",
+    "!Chancleta bendita, parce!",
+    "!Eso le pasa por bobo!",
+    "!Que cuero tan duro!",
+};
+static const int NUM_FRASES_CHANCLA = 8;
+
+// ============================================
+// Helper: spawna floating text de frase
+// ============================================
+static void spawnFrase(Juego* juego, const char* frase, float x, float y,
+                       float r, float g, float b) {
+    for (int i = MAX_FLOATING_TEXT - 1; i >= MAX_FLOATING_TEXT * 2 / 3; i--) {
+        if (!juego->floatingTexts[i].activo) {
+            FloatingText& ft = juego->floatingTexts[i];
+            ft.x      = x;
+            ft.y      = y - 48.0f;
+            ft.valor  = 0;          // 0 indica "mostrar frase, no número"
+            ft.timer  = (int)(FLOATING_TEXT_DURACION * 2.0f);
+            ft.activo = true;
+            ft.colorR = r;
+            ft.colorG = g;
+            ft.colorB = b;
+            SDL_snprintf(ft.frase, sizeof(ft.frase), "%s", frase);
+            break;
+        }
+    }
+}
+
+// ============================================
 // Sistema de puntuacion con combo
 // ============================================
 void agregarPuntos(Juego* juego, int base, float x, float y) {
@@ -81,20 +133,48 @@ void agregarPuntos(Juego* juego, int base, float x, float y) {
     else                         juego->multiplicador = 1.0f;
 
     int puntosReales = (int)(base * juego->multiplicador);
-    juego->puntuacion += puntosReales;
+    juego->puntuacion    += puntosReales;
     juego->puntosEnNivel += puntosReales;
 
-    for (int i = 0; i < MAX_FLOATING_TEXT; i++) {
+    // Floating text principal — puntos
+    int slotPuntos = -1;
+    for (int i = 0; i < MAX_FLOATING_TEXT * 2 / 3; i++) {
         if (!juego->floatingTexts[i].activo) {
             FloatingText& ft = juego->floatingTexts[i];
-            ft.x = x; ft.y = y; ft.valor = puntosReales;
-            ft.timer = FLOATING_TEXT_DURACION; ft.activo = true;
+            ft.x      = x;
+            ft.y      = y;
+            ft.valor  = puntosReales;
+            ft.timer  = FLOATING_TEXT_DURACION;
+            ft.activo = true;
+            ft.frase[0] = '\0';
             if      (juego->combo >= 20) { ft.colorR=0.8f; ft.colorG=0.2f; ft.colorB=1.0f; }
             else if (juego->combo >= 10) { ft.colorR=1.0f; ft.colorG=0.1f; ft.colorB=0.1f; }
             else if (juego->combo >=  5) { ft.colorR=1.0f; ft.colorG=0.5f; ft.colorB=0.0f; }
             else if (juego->combo >=  3) { ft.colorR=1.0f; ft.colorG=0.9f; ft.colorB=0.0f; }
             else                         { ft.colorR=1.0f; ft.colorG=1.0f; ft.colorB=1.0f; }
+            slotPuntos = i;
             break;
+        }
+    }
+
+    // Floating text secundario — racha si hay combo >= 2
+    if (slotPuntos >= 0 && juego->combo >= 2) {
+        for (int i = slotPuntos + 1; i < MAX_FLOATING_TEXT * 2 / 3; i++) {
+            if (!juego->floatingTexts[i].activo) {
+                FloatingText& fr = juego->floatingTexts[i];
+                fr.x      = x;
+                fr.y      = y + 30.0f;  // debajo del número
+                fr.valor  = -(juego->combo); // negativo = mostrar "racha X"
+                fr.timer  = FLOATING_TEXT_DURACION;
+                fr.activo = true;
+                fr.frase[0] = '\0';
+                // Color más oscuro que el de puntos
+                FloatingText& fp = juego->floatingTexts[slotPuntos];
+                fr.colorR = fp.colorR * 0.75f;
+                fr.colorG = fp.colorG * 0.75f;
+                fr.colorB = fp.colorB * 0.75f;
+                break;
+            }
         }
     }
 }
@@ -102,36 +182,81 @@ void agregarPuntos(Juego* juego, int base, float x, float y) {
 void actualizarFloatingTexts(Juego* juego) {
     for (int i = 0; i < MAX_FLOATING_TEXT; i++) {
         if (!juego->floatingTexts[i].activo) continue;
-        juego->floatingTexts[i].y -= 0.6f;
+        juego->floatingTexts[i].y -= 0.8f;
         juego->floatingTexts[i].timer--;
-        if (juego->floatingTexts[i].timer <= 0) juego->floatingTexts[i].activo = false;
+        if (juego->floatingTexts[i].timer <= 0)
+            juego->floatingTexts[i].activo = false;
     }
 }
+
 // ============================================
-// Esquive cercano — bonus por esquivar activamente
+// Esquive cercano — bonus dopamínico
 // ============================================
 void mundoOnEsquiveCercano(Juego* juego, Enemigo* en) {
-    // Solo dar bonus si el jugador se movio recientemente
-    if (!juego->jugador.enMovimiento) return;
+    int pts;
+    switch (en->tipo) {
+        case ENEMIGO_ESPEJO:     pts = 8; break;
+        case ENEMIGO_BOMBARDERO: pts = 6; break;
+        case ENEMIGO_ZIGZAG:     pts = 5; break;
+        case ENEMIGO_RAPIDO:     pts = 4; break;
+        default:                 pts = PTS_ESQUIVAR_NORMAL; break;
+    }
+    if      (en->distMinAlcanzada < 25.0f) pts += 4;
+    else if (en->distMinAlcanzada < 50.0f) pts += 2;
+    else if (en->distMinAlcanzada < 80.0f) pts += 1;
 
-    int pts = 5;  // bonus fijo por esquive cercano
     float fx = en->rect.x + en->rect.w * 0.5f;
     float fy = en->rect.y + en->rect.h * 0.5f;
 
-    // Floating text especial color cyan — inline para no depender de ScoreManager
-    for (int ft = 0; ft < MAX_FLOATING_TEXT; ft++) {
-        if (!juego->floatingTexts[ft].activo) {
-            juego->floatingTexts[ft].activo = true;
-            juego->floatingTexts[ft].x      = fx;
-            juego->floatingTexts[ft].y      = fy;
-            juego->floatingTexts[ft].valor  = pts;
-            juego->floatingTexts[ft].timer  = FLOATING_TEXT_DURACION;
-            juego->floatingTexts[ft].colorR = 0.2f;  // cyan
-            juego->floatingTexts[ft].colorG = 0.9f;
-            juego->floatingTexts[ft].colorB = 1.0f;
+    agregarPuntos(juego, pts, fx, fy);
+
+    // Sobreescribir color del número a cyan para distinguir de kills
+    for (int i = MAX_FLOATING_TEXT * 2 / 3 - 1; i >= 0; i--) {
+        if (juego->floatingTexts[i].activo && juego->floatingTexts[i].valor > 0) {
+            juego->floatingTexts[i].colorR = 0.2f;
+            juego->floatingTexts[i].colorG = 0.9f;
+            juego->floatingTexts[i].colorB = 1.0f;
             break;
         }
     }
-    juego->puntuacion    += pts;
-    juego->puntosEnNivel += pts;
+}
+
+// ============================================
+// Kill con machete — puntos + frase paisa
+// ============================================
+void mundoOnEnemigoMuertoMachete(Juego* juego, int idx, float x, float y) {
+    Enemigo* en = &juego->enemigos[idx];
+    int pts;
+    switch (en->tipo) {
+        case ENEMIGO_ESPEJO:     pts = 10; break;
+        case ENEMIGO_BOMBARDERO: pts = 8;  break;
+        case ENEMIGO_ZIGZAG:     pts = 6;  break;
+        case ENEMIGO_RAPIDO:     pts = 4;  break;
+        default:                 pts = PTS_MATAR_NORMAL; break;
+    }
+    agregarPuntos(juego, pts, x, y);
+    // Frase aleatoria machete — amarillo dorado
+    int idx_frase = rand() % NUM_FRASES_MACHETE;
+    spawnFrase(juego, FRASES_MACHETE[idx_frase], x, y, 1.0f, 0.85f, 0.1f);
+    generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
+}
+
+// ============================================
+// Kill con chancla — puntos + frase paisa
+// ============================================
+void mundoOnEnemigoMuertoChancla(Juego* juego, int idx, float x, float y) {
+    Enemigo* en = &juego->enemigos[idx];
+    int pts;
+    switch (en->tipo) {
+        case ENEMIGO_ESPEJO:     pts = 10; break;
+        case ENEMIGO_BOMBARDERO: pts = 8;  break;
+        case ENEMIGO_ZIGZAG:     pts = 6;  break;
+        case ENEMIGO_RAPIDO:     pts = 4;  break;
+        default:                 pts = PTS_MATAR_NORMAL; break;
+    }
+    agregarPuntos(juego, pts, x, y);
+    // Frase aleatoria chancla — cian
+    int idx_frase = rand() % NUM_FRASES_CHANCLA;
+    spawnFrase(juego, FRASES_CHANCLA[idx_frase], x, y, 0.1f, 0.9f, 1.0f);
+    generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
 }

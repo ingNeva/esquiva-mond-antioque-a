@@ -76,7 +76,7 @@
 #define MAX_FLOATING_TEXT         20
 #define LLAVE_TAMANO              48
 #define PTS_LLAVE_BONUS           20
-#define FLOATING_TEXT_DURACION    50
+#define FLOATING_TEXT_DURACION    60   // era 50, un poco más largo para verlo mejor
 
 // ============================================
 // Puntos
@@ -119,6 +119,14 @@
 #define CHANCLA_RADIO_RECOGIDA  30.0f
 #define CHANCLA_TAMANO          48
 #define COOLDOWN_CHANCLA        3500
+
+// ============================================
+// Rayos de proximidad — puntaje dopamínico
+// ============================================
+#define RADIO_BURBUJA_ESQUIVE   140    // px desde el centro del jugador (era 110)
+#define UMBRAL_ALEJAMIENTO      30.0f  // px que debe alejarse desde su mínimo para contar
+#define UMBRAL_SALIDA_ESQUIVE   0.85f  // fracción del radio: si distMin < radio*este, cuenta al salir
+
 // ============================================
 // Resoluciones disponibles
 // ============================================

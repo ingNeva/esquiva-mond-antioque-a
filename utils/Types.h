@@ -5,13 +5,6 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include "Constants.h"
 
-// ============================================
-// Structs de datos puros
-// ============================================
-
-// MAX_NIVELES debe estar definido en Constants.h.
-// Si no existe, agrega: #define MAX_NIVELES 4
-
 struct EntradaPuntaje {
     char nombre[MAX_NOMBRE];
     int  puntuacion;
@@ -27,7 +20,6 @@ enum DireccionJugador { DIR_DERECHA, DIR_IZQUIERDA, DIR_ABAJO, DIR_ARRIBA };
 struct Jugador {
     SDL_FRect rect;
     int velocidad;
-    // --- Animación de caminata ---
     DireccionJugador direccion  = DIR_ABAJO;
     int    frameAnim            = 0;
     Uint64 ultimoFrame          = 0;
@@ -42,8 +34,10 @@ struct Enemigo {
     int         vida;
     float       anguloZigzag;
     float       timerBomba;
-    bool        apuntaAlJugador;       // true si fue generado apuntando al jugador
-    bool        esquiveCercanoContado; // evita contar el mismo esquive dos veces
+    bool        apuntaAlJugador       = false;
+    bool        esquiveCercanoContado = false;
+    bool        dentroBurbujaEsquive  = false;
+    float       distMinAlcanzada      = 9999.0f;
 };
 
 struct Machete {
@@ -64,10 +58,11 @@ struct Pilar {
 
 struct FloatingText {
     float  x, y;
-    int    valor;
+    int    valor;           // positivo = puntos, negativo = racha (combo)
     int    timer;
     float  colorR, colorG, colorB;
     bool   activo;
+    char   frase[48];       // si frase[0] != '\0', muestra la frase en vez del número
 };
 
 struct Llave {
@@ -86,6 +81,7 @@ struct Chancla {
     float  xOrigen, yOrigen;
     Uint64 ultimoUso;
 };
+
 struct TransicionNivel {
     bool        activa;
     int         nivelNuevo;
@@ -93,21 +89,15 @@ struct TransicionNivel {
     EstadoJuego estadoAnterior;
 };
 
-// ============================================
-// Configuracion de teclas reasignables
-// ============================================
 struct KeyConfig {
-    SDL_Scancode moverArriba   = SDL_SCANCODE_W;
-    SDL_Scancode moverAbajo    = SDL_SCANCODE_S;
-    SDL_Scancode moverIzquierda= SDL_SCANCODE_A;
-    SDL_Scancode moverDerecha  = SDL_SCANCODE_D;
-    SDL_Scancode atacar        = SDL_SCANCODE_SPACE;
-    SDL_Scancode pausa         = SDL_SCANCODE_ESCAPE;
+    SDL_Scancode moverArriba    = SDL_SCANCODE_W;
+    SDL_Scancode moverAbajo     = SDL_SCANCODE_S;
+    SDL_Scancode moverIzquierda = SDL_SCANCODE_A;
+    SDL_Scancode moverDerecha   = SDL_SCANCODE_D;
+    SDL_Scancode atacar         = SDL_SCANCODE_SPACE;
+    SDL_Scancode pausa          = SDL_SCANCODE_ESCAPE;
 };
 
-// ============================================
-// Estructura principal del juego
-// ============================================
 struct Juego {
     SDL_Window*    ventana;
     SDL_Renderer*  renderer;
@@ -134,7 +124,6 @@ struct Juego {
     int            longitudNombre;
     int            posicionNuevoPuntaje;
 
-    // Audio
     MIX_Mixer*   mixer;
     MIX_Track*   trackMusica;
     MIX_Audio*   musicaMenu;
@@ -183,43 +172,31 @@ struct Juego {
 
     Uint64       inicioCuentaRegresiva;
 
-    // Teclas reasignables
     KeyConfig keyConfig;
 
-    // Opciones de pantalla
     int  opcionOpcionesSeleccionada;
     int  resolucionSeleccionada;
     bool pantallaCompleta;
     int  nivelActual;
     int  puntosEnNivel;
 
-    // === Sistema de niveles y progreso ===
-    bool nivelesDesbloqueados[MAX_NIVELES]; // true = nivel desbloqueado
-    int  opcionLevelSelectSeleccionada;     // cursor en el menú de niveles
-// Spritesheets del jugador (4 direcciones)
+    bool nivelesDesbloqueados[MAX_NIVELES];
+    int  opcionLevelSelectSeleccionada;
+
     SDL_Texture* texPlayerRight = nullptr;
     SDL_Texture* texPlayerLeft  = nullptr;
     SDL_Texture* texPlayerDown  = nullptr;
     SDL_Texture* texPlayerUp    = nullptr;
 
-    // =============================================
-    // Nivel 2 — Zonas de daño (suelo peligroso)
-    // =============================================
     SDL_FRect zonasRiesgo[3];
     int       zonasRiesgoCount = 0;
 
-    // =============================================
-    // Nivel 3 — Niebla periódica
-    // =============================================
-    Uint64 nieblaSiguiente  = 0;  // ticks cuando empieza la próxima niebla
-    Uint64 nieblaFin        = 0;  // ticks cuando termina la niebla activa
+    Uint64 nieblaSiguiente  = 0;
+    Uint64 nieblaFin        = 0;
     bool   nieblaActiva     = false;
 
-    // =============================================
-    // Nivel 4 — Onda expansiva (empujón al jugador)
-    // =============================================
-    Uint64 ondaSiguiente     = 0;  // ticks cuando sale la próxima onda
-    Uint64 ondaInicio        = 0;  // ticks de inicio de la onda actual
+    Uint64 ondaSiguiente     = 0;
+    Uint64 ondaInicio        = 0;
     bool   ondaActiva        = false;
     float  ondaRadio         = 0.0f;
     float  jugadorEmpujonX   = 0.0f;

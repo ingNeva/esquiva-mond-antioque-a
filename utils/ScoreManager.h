@@ -13,3 +13,7 @@ int  insertarPuntaje(TablaPuntajes* tabla, const char* nombre, int puntuacion);
 void agregarPuntos(Juego* juego, int base, float x, float y);
 void actualizarFloatingTexts(Juego* juego);
 void mundoOnEsquiveCercano(Juego* juego, Enemigo* en);
+
+// Kills con arma especial — frases colombianas
+void mundoOnEnemigoMuertoMachete(Juego* juego, int idx, float x, float y);
+void mundoOnEnemigoMuertoChancla(Juego* juego, int idx, float x, float y);
