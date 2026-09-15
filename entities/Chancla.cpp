@@ -108,6 +108,7 @@ void actualizarChancla(Juego* juego) {
     // que acaba de regenerarse en el mismo sitio.
     for (int i = 0; i < juego->enemigosActivos; i++) {
         Enemigo* en = &juego->enemigos[i];
+        if (en->explotando) continue; // ya esta muerto, esperando explotar
         if (SDL_HasRectIntersectionFloat(&hitbox, &en->rect)) {
             en->vida--;
             if (en->vida <= 0) {

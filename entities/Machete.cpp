@@ -37,12 +37,13 @@ void usarMachete(Juego* juego) {
 
     for (int i = 0; i < juego->enemigosActivos; i++) {
         Enemigo* en = &juego->enemigos[i];
+        if (en->explotando) continue; // ya esta muerto, esperando explotar
         float dx = (en->rect.x + en->rect.w / 2.0f) - cx;
         float dy = (en->rect.y + en->rect.h / 2.0f) - cy;
         if (sqrtf(dx*dx + dy*dy) <= RANGO_ATAQUE) {
             en->vida--;
             if (en->vida <= 0)
-                mundoOnEnemigoMuerto(juego, i, en->rect.x + en->rect.w / 2.0f, en->rect.y);
+                mundoOnEnemigoMuertoMachete(juego, i, en->rect.x + en->rect.w / 2.0f, en->rect.y);
         }
     }
     if (juego->estadoBoss == BOSS_ACTIVO || juego->estadoBoss == BOSS_ENFURECIDO) {

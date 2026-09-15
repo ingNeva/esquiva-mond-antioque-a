@@ -88,19 +88,22 @@ void dibujarJuego(Juego* juego) {
         SDL_Texture* tex = nullptr;
         switch (en->tipo) {
             case ENEMIGO_RAPIDO:     tex = juego->texEnemigoRapido;     break;
-            case ENEMIGO_TANQUE:
-                // En nivel 5 el tanque usa la textura verde (espejo)
-                tex = (juego->nivelActual >= 5)
-                    ? juego->texEnemigoEspejo
-                    : juego->texEnemigoTanque;
-                break;
+            case ENEMIGO_TANQUE:     tex = juego->texEnemigoTanque;     break;
             case ENEMIGO_ZIGZAG:     tex = juego->texEnemigoZigzag;     break;
             case ENEMIGO_BOMBARDERO: tex = juego->texEnemigoBombardero; break;
             case ENEMIGO_ESPEJO:     tex = juego->texEnemigoEspejo;     break;
             default:                 tex = juego->texEnemigo;           break;
         }
         if (!tex) tex = juego->texEnemigo;
-        SDL_RenderTexture(juego->renderer, tex, NULL, &en->rect);
+        if (en->tipo == ENEMIGO_TANQUE && en->explotando) {
+            // Parpadeo rojo mientras espera explotar
+            float pulso = 0.5f + 0.5f * sinf((float)SDL_GetTicks() * 0.03f);
+            SDL_SetTextureColorMod(tex, 255, (Uint8)(255 * (1.0f - pulso)), (Uint8)(255 * (1.0f - pulso)));
+            SDL_RenderTexture(juego->renderer, tex, NULL, &en->rect);
+            SDL_SetTextureColorMod(tex, 255, 255, 255);
+        } else {
+            SDL_RenderTexture(juego->renderer, tex, NULL, &en->rect);
+        }
         if (en->tipo == ENEMIGO_TANQUE && en->vida > 0 && en->vida <= 3) {
             float dotX = en->rect.x + en->rect.w / 2.0f - (en->vida * 10.0f) / 2.0f;
             float dotY = en->rect.y - 10.0f;

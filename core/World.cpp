@@ -185,6 +185,10 @@ void mundoActualizar(Juego* juego) {
         Enemigo* en = &juego->enemigos[i];
         moverEnemigo(en, juego->jugador, nivel, juego);
 
+        // ENEMIGO_TANQUE inerte esperando explotar: no colisiona, no cuenta
+        // esquive, no se revisa salida de pantalla mientras espera.
+        if (en->explotando) continue;
+
         const float screenW = (float)VW(juego);
         const float screenH = (float)VH(juego);
 

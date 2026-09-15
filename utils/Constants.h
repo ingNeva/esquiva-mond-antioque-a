@@ -89,6 +89,16 @@
 #define PTS_MATAR_AZUL            8
 #define PTS_MATAR_BOSS_MACHETE    10
 #define PTS_TROFEO_BONUS          200
+#define PTS_ESQUIVAR_TANQUE       7
+
+// ============================================
+// Enemigo tanque — persigue, resiste varios golpes,
+// al morir queda inerte y explota en 2 basicos
+// ============================================
+#define TANQUE_VELOCIDAD          2.3f   // mas lento que el jugador (4)
+#define TANQUE_VIDA               3      // golpes necesarios para matarlo
+#define TANQUE_TIEMPO_EXPLOSION   2000   // ms inerte antes de explotar
+#define TANQUE_TAMANO             84.0f
 
 // ============================================
 // Mecánicas especiales por nivel

@@ -58,26 +58,33 @@ void generarEnemigoConJugador(Enemigo* en, int nivel, const Jugador* jugador) {
     en->esquiveCercanoContado = false;
     en->dentroBurbujaEsquive  = false;
     en->distMinAlcanzada      = 9999.0f;
+    en->explotando            = false;
+    en->tiempoExplosion       = 0;
 
     int r = rand() % 100;
     if (nivel >= 5) {
-        if      (r < 35) en->tipo = ENEMIGO_ESPEJO;
-        else if (r < 55) en->tipo = ENEMIGO_BOMBARDERO;
-        else if (r < 75) en->tipo = ENEMIGO_ZIGZAG;
+        if      (r < 10) en->tipo = ENEMIGO_TANQUE;
+        else if (r < 40) en->tipo = ENEMIGO_ESPEJO;
+        else if (r < 60) en->tipo = ENEMIGO_BOMBARDERO;
+        else if (r < 80) en->tipo = ENEMIGO_ZIGZAG;
         else             en->tipo = ENEMIGO_RAPIDO;
     } else if (nivel == 4) {
-        if      (r < 30) en->tipo = ENEMIGO_BOMBARDERO;
+        if      (r < 10) en->tipo = ENEMIGO_TANQUE;
+        else if (r < 35) en->tipo = ENEMIGO_BOMBARDERO;
         else if (r < 55) en->tipo = ENEMIGO_ZIGZAG;
         else if (r < 75) en->tipo = ENEMIGO_ESPEJO;
         else if (r < 90) en->tipo = ENEMIGO_RAPIDO;
         else             en->tipo = ENEMIGO_BASICO;
     } else if (nivel == 3) {
-        if      (r < 30) en->tipo = ENEMIGO_ZIGZAG;
-        else if (r < 55) en->tipo = ENEMIGO_ESPEJO;
+        if      (r < 12) en->tipo = ENEMIGO_TANQUE;
+        else if (r < 37) en->tipo = ENEMIGO_ZIGZAG;
+        else if (r < 57) en->tipo = ENEMIGO_ESPEJO;
         else if (r < 80) en->tipo = ENEMIGO_RAPIDO;
         else             en->tipo = ENEMIGO_BASICO;
     } else if (nivel == 2) {
-        en->tipo = (r < 40) ? ENEMIGO_RAPIDO : ENEMIGO_BASICO;
+        if      (r < 15) en->tipo = ENEMIGO_TANQUE;
+        else if (r < 50) en->tipo = ENEMIGO_RAPIDO;
+        else             en->tipo = ENEMIGO_BASICO;
     } else {
         en->tipo = ENEMIGO_BASICO;
     }
@@ -91,10 +98,16 @@ void generarEnemigoConJugador(Enemigo* en, int nivel, const Jugador* jugador) {
             break;
         case ENEMIGO_ZIGZAG:
             en->velX *= 0.9f; en->velY *= 0.9f; break;
+        case ENEMIGO_TANQUE:
+            // Persecucion continua en moverEnemigo() — sin velocidad de entrada
+            en->velX = 0.0f; en->velY = 0.0f;
+            en->rect.w = TANQUE_TAMANO; en->rect.h = TANQUE_TAMANO;
+            en->vida   = TANQUE_VIDA;
+            break;
         default: break;
     }
 
-    if (jugador && nivel <= 3 && en->tipo != ENEMIGO_ESPEJO) {
+    if (jugador && nivel <= 3 && en->tipo != ENEMIGO_ESPEJO && en->tipo != ENEMIGO_TANQUE) {
         float speed = sqrtf(en->velX*en->velX + en->velY*en->velY);
         orientarHaciaJugador(en, jugador, speed);
     }
@@ -143,8 +156,61 @@ void moverEnemigo(Enemigo* en, const Jugador& jugador, int nivel, Juego* juego) 
             }
             break;
         }
+        case ENEMIGO_TANQUE: {
+            // ── Inerte esperando explotar ──────────────────────────
+            if (en->explotando) {
+                if (SDL_GetTicks() >= en->tiempoExplosion) {
+                    float exX = en->rect.x + en->rect.w * 0.5f;
+                    float exY = en->rect.y + en->rect.h * 0.5f;
+                    for (int s = 0; s < 2 && juego->enemigosActivos < MAX_ENEMIGOS; s++) {
+                        Enemigo* nuevo = &juego->enemigos[juego->enemigosActivos++];
+                        generarEnemigo(nuevo, nivel);
+                        nuevo->tipo   = ENEMIGO_BASICO;
+                        nuevo->vida   = 1;
+                        nuevo->rect.w = (float)TAMANO_SPRITE;
+                        nuevo->rect.h = (float)TAMANO_SPRITE;
+                        nuevo->rect.x = exX - TAMANO_SPRITE * 0.5f + (s == 0 ? -18.0f : 18.0f);
+                        nuevo->rect.y = exY - TAMANO_SPRITE * 0.5f;
+                        float ang = (float)(rand() % 360) * (float)M_PI / 180.0f;
+                        nuevo->velX = cosf(ang) * 4.0f;
+                        nuevo->velY = sinf(ang) * 4.0f;
+                    }
+                    en->explotando = false;
+                    generarEnemigoConJugador(en, nivel, &jugador);
+                }
+                break;
+            }
+            // ── Persecucion continua hacia el jugador ──────────────
+            float tx   = jugador.rect.x + jugador.rect.w * 0.5f;
+            float ty   = jugador.rect.y + jugador.rect.h * 0.5f;
+            float ex   = en->rect.x + en->rect.w * 0.5f;
+            float ey   = en->rect.y + en->rect.h * 0.5f;
+            float ddx  = tx - ex;
+            float ddy  = ty - ey;
+            float dist = sqrtf(ddx*ddx + ddy*ddy);
+            if (dist > 1.0f) {
+                float vel = TANQUE_VELOCIDAD + (nivel >= 5 ? 1.2f : (nivel >= 4 ? 0.6f : 0.0f));
+                en->rect.x += (ddx / dist) * vel;
+                en->rect.y += (ddy / dist) * vel;
+            }
+            break;
+        }
         default: break;
     }
+}
+
+// ============================================
+// ENEMIGO_TANQUE — inicio de la secuencia de explosion
+// Se llama desde los callbacks de muerte por arma (Machete/Chancla)
+// en vez de regenerar el enemigo de inmediato.
+// ============================================
+void iniciarExplosionTanque(Juego* juego, int idx) {
+    Enemigo* en = &juego->enemigos[idx];
+    en->vida            = 0;
+    en->velX            = 0.0f;
+    en->velY            = 0.0f;
+    en->explotando      = true;
+    en->tiempoExplosion = SDL_GetTicks() + TANQUE_TIEMPO_EXPLOSION;
 }
 
 // ============================================

@@ -196,6 +196,7 @@ void mundoOnEsquiveCercano(Juego* juego, Enemigo* en) {
     int pts;
     switch (en->tipo) {
         case ENEMIGO_ESPEJO:     pts = 8; break;
+        case ENEMIGO_TANQUE:     pts = PTS_ESQUIVAR_TANQUE; break;
         case ENEMIGO_BOMBARDERO: pts = 6; break;
         case ENEMIGO_ZIGZAG:     pts = 5; break;
         case ENEMIGO_RAPIDO:     pts = 4; break;
@@ -229,6 +230,7 @@ void mundoOnEnemigoMuertoMachete(Juego* juego, int idx, float x, float y) {
     int pts;
     switch (en->tipo) {
         case ENEMIGO_ESPEJO:     pts = 10; break;
+        case ENEMIGO_TANQUE:     pts = PTS_MATAR_TANQUE; break;
         case ENEMIGO_BOMBARDERO: pts = 8;  break;
         case ENEMIGO_ZIGZAG:     pts = 6;  break;
         case ENEMIGO_RAPIDO:     pts = 4;  break;
@@ -238,7 +240,10 @@ void mundoOnEnemigoMuertoMachete(Juego* juego, int idx, float x, float y) {
     // Frase aleatoria machete — amarillo dorado
     int idx_frase = rand() % NUM_FRASES_MACHETE;
     spawnFrase(juego, FRASES_MACHETE[idx_frase], x, y, 1.0f, 0.85f, 0.1f);
-    generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
+    if (en->tipo == ENEMIGO_TANQUE)
+        iniciarExplosionTanque(juego, idx);
+    else
+        generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
 }
 
 // ============================================
@@ -249,6 +254,7 @@ void mundoOnEnemigoMuertoChancla(Juego* juego, int idx, float x, float y) {
     int pts;
     switch (en->tipo) {
         case ENEMIGO_ESPEJO:     pts = 10; break;
+        case ENEMIGO_TANQUE:     pts = PTS_MATAR_TANQUE; break;
         case ENEMIGO_BOMBARDERO: pts = 8;  break;
         case ENEMIGO_ZIGZAG:     pts = 6;  break;
         case ENEMIGO_RAPIDO:     pts = 4;  break;
@@ -258,5 +264,8 @@ void mundoOnEnemigoMuertoChancla(Juego* juego, int idx, float x, float y) {
     // Frase aleatoria chancla — cian
     int idx_frase = rand() % NUM_FRASES_CHANCLA;
     spawnFrase(juego, FRASES_CHANCLA[idx_frase], x, y, 0.1f, 0.9f, 1.0f);
-    generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
+    if (en->tipo == ENEMIGO_TANQUE)
+        iniciarExplosionTanque(juego, idx);
+    else
+        generarEnemigoConJugador(en, juego->nivelActual, &juego->jugador);
 }

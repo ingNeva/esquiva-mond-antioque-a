@@ -24,12 +24,14 @@ set(SOURCES
     entities/Enemy.cpp
     entities/Boss.cpp
     entities/Llave.cpp
+    entities/Chancla.cpp
     scenes/GameScene.cpp
     scenes/MenuScene.cpp
     scenes/CountdownScene.cpp
     scenes/GameOverScene.cpp
     scenes/OptionsScene.cpp
     scenes/LevelSelectScene.cpp
+    scenes/KeybindScene.cpp
 )
 
 # ============================================

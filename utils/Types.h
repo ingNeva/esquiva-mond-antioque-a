@@ -38,6 +38,10 @@ struct Enemigo {
     bool        esquiveCercanoContado = false;
     bool        dentroBurbujaEsquive  = false;
     float       distMinAlcanzada      = 9999.0f;
+    // ENEMIGO_TANQUE: al morir queda "explotando" (inerte) unos segundos
+    // antes de liberar 2 enemigos basicos y regenerarse.
+    bool        explotando            = false;
+    Uint64      tiempoExplosion       = 0;
 };
 
 struct Machete {
